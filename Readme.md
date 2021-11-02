@@ -134,7 +134,7 @@ with specific directories listed here:
 This applet is STEP 1 of the rare variant testing pipleine developed by Eugene Gardner for the UKBiobank RAP at the MRC
 Epidemiology Unit:
 
-![](https://github.com/MRCEpid-DNANexus/mrcepid-filterbcf/tree/main/resources/RAPPipeline.png)
+![](https://github.com/MRCEpid-DNANexus/mrcepid-filterbcf/blob/main/resources/RAPPipeline.png)
 
 
 
