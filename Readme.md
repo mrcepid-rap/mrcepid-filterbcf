@@ -151,7 +151,7 @@ with specific directories listed here:
 This applet is step 1 (mrc-filterbcf) of the rare variant testing pipeline developed by Eugene Gardner for the UKBiobank RAP at the MRC
 Epidemiology Unit:
 
-![](https://github.com/MRCEpid-DNANexus/mrcepid-filterbcf/blob/main/resources/RAPPipeline.png)
+![](https://github.com/mrcepid-rap/.github/blob/main/resources/RAPPipeline.png)
 
 As transparency regarding how variant filtering is performed is crucial, I have documented each step that this applet performs below.
 Code in this section is meant for example purposes only. For more details, please see the commented source code available at
