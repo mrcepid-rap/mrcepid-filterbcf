@@ -5,22 +5,23 @@ For more information about how to run or modify it, see
 https://documentation.dnanexus.com/.
 
 ### Table of Contents
-  * [Introduction](#introduction)
-    + [Dependencies](#dependencies)
-      - [Docker](#docker)
-        * [Building the image](#building-the-image)
-      - [Resource Files](#resource-files)
-  * [Methodology](#methodology)
-    + [1. Split multiallelic variants and normalise all variants](#1-split-multiallelic-variants-and-normalise-all-variants)
-    + [2. Perform variant filtering](#2-perform-variant-filtering)
-    + [3. VEP annotation](#3-vep-annotation)
-    + [4. Parsing VEP consequences](#4-parsing-vep-consequences)
-  * [Running on DNANexus](#running-on-dnanexus)
-    + [Inputs](#inputs)
-    + [Outputs](#outputs)
-    + [Command Line Example](#command-line-example)
-        * [Batch Running](#batch-running)
-
+- [Introduction](#introduction)
+    * [Background](#background)
+    * [Dependencies](#dependencies)
+        + [Docker](#docker)
+        + [Resource Files](#resource-files)
+- [Methodology](#methodology)
+    * [Potential Caveats to this Approach](#potential-caveats-to-this-approach)
+    * [1. Split multiallelic variants and normalise all variants](#1-split-multiallelic-variants-and-normalise-all-variants)
+    * [2. Perform variant filtering](#2-perform-variant-filtering)
+    * [3. VEP annotation](#3-vep-annotation)
+    * [4. Parsing VEP consequences](#4-parsing-vep-consequences)
+- [Running on DNANexus](#running-on-dnanexus)
+    * [Inputs](#inputs)
+    * [Outputs](#outputs)
+    * [Command line example](#command-line-example)
+        + [Batch Running](#batch-running)
+    
 ## Introduction
 
 This applet filters and annotates a target BCF/VCF according to parameters set by MRC Epidemiology.
@@ -40,24 +41,39 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
 **Note:** This README pertains to data included as part of the DNANexus project "MRC - Variant Filtering" (project-G2XK5zjJXk83yZ598Z7BpGPk)
-          
+
+### Background
+
+The current proposal for variant quality control is to use a missingness-based approach for variant-level filters.
+We use this approach as UK Biobank does not provide more fine-tuned parameters that we can use for variant-level
+filtering. In brief, UK Biobank used the “OQFE” [calling approach](https://www.nature.com/articles/s41588-021-00885-0) for
+the 200k exomes, which involves alignment with [BWA mem](http://bio-bwa.sourceforge.net/bwa.shtml) and variant calling
+with [DeepVariant](https://github.com/google/deepvariant). Variants were restricted to ±100bps from exome capture regions
+and then filtered using the following parameters:
+
+1. Hardy-Weinberg Equil. p.value < 1x10-15
+2. Minimum read coverage depth > 7 for SNVs and > 10 for InDels
+3. One sample per variant passed allele balance > 0.15 and > 0.20 for InDels
+
+This applet takes this data as input and performs additional filtering as outlined in the [Methology](#methodology) section.
+
 ### Dependencies
 
 #### Docker
 
 This applet uses [Docker](https://www.docker.com/) to supply dependencies to the underlying AWS instance
-launched by DNANexus. All Docker images produced for this and other MRC projects are available as part of Eugene Gardner's 
-Dockerhub profile: **[egardner413](https://hub.docker.com/u/egardner413)**. See [below](#building-the-docker-image) for
-specifics regarding the image produced for this specific project. The Dockerfile used to build dependencies is available 
-as part of this repository at:
+launched by DNANexus. The Dockerfile used to build dependencies is available as part of the MRCEpid organisation at:
 
-`resources/Dockerfile`
+https://github.com/mrcepid-rap/dockerimages/blob/main/filterbcf.Dockerfile
 
 This Docker image is built off of the primary 20.04 Ubuntu distribution available via [dockerhub](https://hub.docker.com/layers/ubuntu/library/ubuntu/20.04/images/sha256-644e9b64bee38964c4d39b8f9f241b894c00d71a932b5a20e1e8ee8e06ca0fbd?context=explore).
 This image is very light-weight and only provides basic OS installation. Other basic software (e.g. wget, make, and gcc) need
-to be installed manually.
+to be installed manually. For more details on how to build a Docker image for use on the UKBiobank RAP, please see:
 
-In brief, the primary **bioinformatics software** dependencies required by this Dockerfile are:
+https://github.com/mrcepid-rap#docker-images
+
+In brief, the primary **bioinformatics software** dependencies required by this Applet (and provided in the associated Docker image)
+are:
 
 * [htslib and samtools](http://www.htslib.org/)
 * [bcftools](https://samtools.github.io/bcftools/bcftools.html)
@@ -68,69 +84,7 @@ In brief, the primary **bioinformatics software** dependencies required by this 
 * [plink2](https://www.cog-genomics.org/plink/2.0/)
 
 This list is not exhaustive and does not include dependencies of dependencies and software needed
-to acquire other resources (e.g. wget). See the referenced Dockerfile for more information. 
-
-**Note:** For most of the above have chosen **not** to hardcode programme version numbers. This means that Docker will install the latest 
-version of any software provided as part of the Dockerfile! The exception to this is plink/plink2 as the developers do not provide static links to
-the latest version. If running this Dockerfile you will need to change  
-
-This docker image is stored for public use on Dockerhub:
-
-https://hub.docker.com/r/egardner413/mrcepid-filtering
-
-For how this Docker image is used to perform specific tasks as part of this applet, please see below.
-
-##### Building the image
-
-The docker image was built on an AWS Instance launched via DNANexus. I include here a brief example workflow to enable reproducibility.
-Please note that uploading to dockerhub using Eugene Gardner's dockerhub account *will not work* as described in step 5 below.
-If you want to store this docker image for yourself, you will need to change the commands accordingly.
-All commands are run either locally using the [dx-toolkit](https://documentation.dnanexus.com/downloads) or on a DNANexus AWS instance. 
-
-1. Launch a cloud-workstation:
-
-```commandline
-dx run app-cloud_workstation --ssh --instance-type mem1_ssd1_v2_x4 -imax_session_length=2h
-```
-
-This command will generate a series of prompts and eventually lead to a query for your DNANexus ssh password. This will then
-log you into an AWS instance.
-
-**Note:** One can adjust the amount of time the instance will exist for by changed the `max_session_length`
-parameter. 2 hours should be enough to build most Docker instances.
-
-2. Set your permissions to `root` on the instance:
-
-```commandline
-dx-su-contrib
-```
-
-3. Make and enter a fresh directory for building a Docker image and create a Dockerfile:
-
-```commandline
-mkdir dockerbuild
-cd dockerbuild
-```
-
-After entering this directory, you can either copy-and-paste the text from the provided Dockerfile (using something like 
-`vi`), or upload the file using a combination of `dx upload`/`dx download`. Regardless of method, the following commands
-require that this file is named `Dockerfile`.
-
-4. Build the Docker image:
-
-```commandline
-docker build -t egardner413/mrcepid-filtering:latest .
-```
-
-5. Log in to dockerhub and upload the docker image:
-
-```commandline
-docker login
-# Enter prompted credentials
-docker push egardner413/mrcepid-filtering:latest
-```
-
-After this last command, the Docker image will be available to pull with the address `egardner413/mrcepid-filtering:latest`.
+to acquire other resources (e.g. wget). See the referenced Dockerfile for more information.
 
 #### Resource Files
 
@@ -156,6 +110,18 @@ Epidemiology Unit:
 As transparency regarding how variant filtering is performed is crucial, I have documented each step that this applet performs below.
 Code in this section is meant for example purposes only. For more details, please see the commented source code available at
 `src/mrcepid-filterbcf.py` of this repository.
+
+### Potential Caveats to this Approach
+
+The filtering approach used has several caveats:
+
+1. Potential issues with multi-allelic variants – splitting multi-allelics is not fullproof. In particular, sites that are multiallelic
+   within one individual will not be considered when performing rare variant association testing.
+2. X-chromosome calls in males are not adjusted for male hemizygosity and will typically be ‘1/1’ genotypes (excluding the PAR).
+3. Unsure of how well this QC works on the Y-chromosome.
+4. The above quality control does not include any sample-level variant QC. This is assuming that UKB (a.k.a. Regeneron)
+   does reasonable sample-level QC and excludes any samples that fail various filters.
+
 
 ### 1. Split multiallelic variants and normalise all variants
 
@@ -342,29 +308,13 @@ This final, annotated vcf represents the output of this applet. See below in [ou
 
 ### Command line example
 
-Running this command is fairly straightforward using the DNANexus SDK toolkit. If you are using a project OTHER THAN 
-"MRC - Variant Filtering" (project-G2XK5zjJXk83yZ598Z7BpGPk), you will need to compile this applet for your respective DNANexus project:
+If this is your first time running this applet within a project other than "MRC - Variant Filtering", please see our 
+organisational documentation on how to download and build this app on the DNANexus Research Access Platform:
 
-1. Clone this github repo:
+https://github.com/mrcepid-rap
 
-```commandline
-git clone https://github.com/MRCEpid-DNANexus/mrcepid-filterbcf.git
-```
-
-This will create a folder named mrcepid-filterbcf, you can then:
-
-2. Compile the source code:
-
-```commandline
-dx build -f mrcepid-filterbcf
-```
-
-the `-f` flag just tells DNANexus to overwrite older versions of the applet within the same project.
-
-**BIG NOTE:** This has not been tested in any project other than "MRC - Variant Filtering". It MAY BREAK due to hardcoded
-paths to [Resource Files](#resource-files).
-
-You can then run the following to run this applet. For the input vcf (provided with the flag `-ivcf`) one can use either the file hash OR the full path:
+Running this command is fairly straightforward using the DNANexus SDK toolkit. For the input vcf (provided with the flag 
+`-ivcf`) one can use either the file hash OR the full path:
 
 ```commandline
 # Using file hash
