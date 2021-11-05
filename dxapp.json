@@ -13,7 +13,7 @@
       "patterns": [
         "*.vcf.gz"
       ],
-      "help": ""
+      "help": "Raw UKBiobank unfiltered VCF"
     }
   ],
   "outputSpec": [
@@ -25,7 +25,7 @@
       "patterns": [
         "*.vcf.gz"
       ],
-      "help": ""
+      "help": "VCF filtered and annotated according to this applications parameters"
     },
     {
       "name": "output_vcf_idx",
@@ -35,7 +35,7 @@
       "patterns": [
         "*.vcf.gz.tbi"
       ],
-      "help": ""
+      "help": "Associated index of filtered VCF"
     },
     {
       "name": "site_stats_pre_filter",
@@ -45,7 +45,7 @@
       "patterns": [
         "*.tsv.gz"
       ],
-      "help": ""
+      "help": "Per-site statistics derived from unfiltered VCF"
     },
     {
       "name": "site_stats_post_filter",
@@ -55,7 +55,7 @@
       "patterns": [
         "*.tsv.gz"
       ],
-      "help": ""
+      "help": "Per-site statistics derived from filtered VCF"
     },
     {
       "name": "indv_stats_pre_filter",
@@ -65,7 +65,7 @@
       "patterns": [
         "*.tsv.gz"
       ],
-      "help": ""
+      "help": "Per-individual statistics derived from unfiltered VCF using bcftools stats"
     },
     {
       "name": "indv_stats_post_filter",
@@ -75,7 +75,7 @@
       "patterns": [
         "*.tsv.gz"
       ],
-      "help": ""
+      "help": "Per-individual statistics derived from filtered VCF using bcftools stats"
     }
   ],
   "access": {

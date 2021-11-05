@@ -51,7 +51,7 @@ the 200k exomes, which involves alignment with [BWA mem](http://bio-bwa.sourcefo
 with [DeepVariant](https://github.com/google/deepvariant). Variants were restricted to ±100bps from exome capture regions
 and then filtered using the following parameters:
 
-1. Hardy-Weinberg Equil. p.value < 1x10-15
+1. Hardy-Weinberg Equil. p.value < 1x10<sup>-15</sup>
 2. Minimum read coverage depth > 7 for SNVs and > 10 for InDels
 3. One sample per variant passed allele balance > 0.15 and > 0.20 for InDels
 
@@ -272,6 +272,9 @@ Where the two annotations being compared both fulfill a given criteria, the code
 | downstream_gene_variant           | 21    | INTERGENIC |
 | no_score                          | 22    | ERROR      |
 
+The end-result of this iterative process is each variant in the VCF file gets a collection of INFO fields that contain annotations.
+For information on these annotations, please see the README for the next applet in this pipeline [mrcepid-annotatecadd](https://github.com/mrcepid-rap/mrcepid-annotatecadd).
+
 5. Which consequence appears first in the file?
 
 Filtered VCFs are then annotated with information provided by VEP using `bcftools annotate`:
@@ -322,6 +325,12 @@ dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf=file-
 
 # Using full path
 dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf="Bulk/Exome sequences/Population level exome OQFE variants, pVCF format/ukb23156_c1_b0_v1.vcf.gz"
+```
+
+Brief I/O information can also be retrieved on the command line:
+
+```commandline
+dx run mrcepid-filterbcf --help
 ```
 
 Some notes here regarding execution:

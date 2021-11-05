@@ -14,7 +14,7 @@ import csv
 
 # This function runs a command on an instance, either with or without calling the docker instance we downloaded
 # By default, commands are not run via Docker, but can be changed by setting is_docker = True
-def run_cmd(cmd, is_docker=False):
+def run_cmd(cmd: str, is_docker: bool = False) -> None:
 
     if is_docker:
         # -v here mounts a local directory on an instance (in this case the home dir) to a directory internal to the
@@ -36,7 +36,7 @@ def run_cmd(cmd, is_docker=False):
 
 
 # Utility function to delete files no longer needed from the AWS instance to save space
-def purge_file(file):
+def purge_file(file: str) -> None:
 
     cmd = "rm " + file
     run_cmd(cmd)
@@ -44,7 +44,7 @@ def purge_file(file):
 
 # This is just to compartmentalise the collection of all the resources I need for this task and
 # get them into the right place
-def ingest_resources():
+def ingest_resources() -> None:
 
     # Here we are downloading & unpacking resource files that are required for the annotation engine, they are:
     # 1. Human reference files
@@ -82,7 +82,7 @@ def ingest_resources():
                          folder = "/project_resources/revel_files/")
 
 
-def do_filtering(vcfprefix):
+def do_filtering(vcfprefix: str) -> None:
 
     # Do genotype level filtering
     # -S : sets genotypes which fail -i to missing (./.)
@@ -163,7 +163,7 @@ def do_filtering(vcfprefix):
     purge_file("variants.norm.tagged.vcf.gz")
 
 
-def run_vep():
+def run_vep() -> None:
 
     # Generate a file without genotypes for VEP
     # -G : strips genotypes
@@ -204,7 +204,7 @@ def run_vep():
 
 
 # Writes a VCF style header that is compatible with bcftools annotate for adding VEP info back into our filtered VCF
-def write_annote_header():
+def write_annote_header() -> None:
 
     header_writer = open('variants.header.txt', 'w')
     header_writer.writelines('##INFO=<ID=MANE,Number=1,Type=String,Description="Canonical MANE Transcript">' + "\n")
@@ -234,7 +234,7 @@ def write_annote_header():
 
 
 # Decide how "severe" a CSQ is for a given annotation record
-def define_score(csqs):
+def define_score(csqs: str) -> dict:
 
     csqs_split = csqs.split('&')
 
@@ -274,7 +274,7 @@ def define_score(csqs):
 
 # Prepares a record for final printing by adding some additional pieces of information and
 # finalising the names of some columns for easy printing.
-def final_process_record(rec, severity):
+def final_process_record(rec: dict, severity: dict) -> dict:
 
     # Has to have a "#" to be compatible with VCF I/O
     rec['#CHROM'] = rec['CHROM']
@@ -327,7 +327,7 @@ def final_process_record(rec, severity):
 
 # This function parses VEP output for most severe CSQ for each variant.
 # See individual comments in this code to understand how that is done.
-def parse_vep():
+def parse_vep() -> None:
 
     # These are all possible fields from the vep table that we generated in run_vep()
     # And then read it in as a csv.DictReader()
@@ -423,7 +423,7 @@ def parse_vep():
 
 
 # This function simply runs bcftools annotate to add VEP information back to our QCd VCF
-def annotate_vcf_with_vep(vcfprefix):
+def annotate_vcf_with_vep(vcfprefix: str) -> None:
 
     # This is similar to how BCFtools annotate was run above to add gnomAD MAF but for A LOT more fields that we got via VEP
     cmd = "bcftools annotate --threads 4 -a /test/variants.vep_table.annote.tsv.gz -c " \
