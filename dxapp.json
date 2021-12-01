@@ -26,56 +26,6 @@
         "*.vcf.gz"
       ],
       "help": "VCF filtered and annotated according to this applications parameters"
-    },
-    {
-      "name": "output_vcf_idx",
-      "label": "Output filtered vcf index",
-      "class": "file",
-      "optional": false,
-      "patterns": [
-        "*.vcf.gz.tbi"
-      ],
-      "help": "Associated index of filtered VCF"
-    },
-    {
-      "name": "site_stats_pre_filter",
-      "label": "Output site stats - pre-filter",
-      "class": "file",
-      "optional": false,
-      "patterns": [
-        "*.tsv.gz"
-      ],
-      "help": "Per-site statistics derived from unfiltered VCF"
-    },
-    {
-      "name": "site_stats_post_filter",
-      "label": "Output site stats - post-filter",
-      "class": "file",
-      "optional": false,
-      "patterns": [
-        "*.tsv.gz"
-      ],
-      "help": "Per-site statistics derived from filtered VCF"
-    },
-    {
-      "name": "indv_stats_pre_filter",
-      "label": "Output indv stats - pre-filter",
-      "class": "file",
-      "optional": false,
-      "patterns": [
-        "*.tsv.gz"
-      ],
-      "help": "Per-individual statistics derived from unfiltered VCF using bcftools stats"
-    },
-    {
-      "name": "indv_stats_post_filter",
-      "label": "Output indv stats - post-filter",
-      "class": "file",
-      "optional": false,
-      "patterns": [
-        "*.tsv.gz"
-      ],
-      "help": "Per-individual statistics derived from filtered VCF using bcftools stats"
     }
   ],
   "access": {

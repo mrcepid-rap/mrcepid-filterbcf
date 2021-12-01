@@ -58,26 +58,26 @@ def ingest_resources() -> None:
     run_cmd(cmd)
 
     # 2. vep cache file
-    dxpy.download_folder('project-G2XK5zjJXk83yZ598Z7BpGPk',
+    dxpy.download_folder('project-G6BJF50JJv8p4PjGB9yy7YQ2',
                          'vep_caches/',
                          folder = "/project_resources/vep_caches/")
     cmd = "tar -zxf vep_caches/homo_sapiens_vep_104_GRCh38.tar.gz -C vep_caches/"
     run_cmd(cmd)
 
     ## 3. loftee reference files:
-    dxpy.download_folder('project-G2XK5zjJXk83yZ598Z7BpGPk',
+    dxpy.download_folder('project-G6BJF50JJv8p4PjGB9yy7YQ2',
                          'loftee_files/',
                          folder = "/project_resources/loftee_files/")
     cmd = "tar -zxf loftee_files/loftee_hg38.tar.gz -C loftee_files/"
     run_cmd(cmd)
 
     ## 4. gnomAD MAF files:
-    dxpy.download_folder('project-G2XK5zjJXk83yZ598Z7BpGPk',
+    dxpy.download_folder('project-G6BJF50JJv8p4PjGB9yy7YQ2',
                          'gnomad_files/',
                          folder = "/project_resources/gnomad_files/")
 
     ## 5. REVEL files
-    dxpy.download_folder('project-G2XK5zjJXk83yZ598Z7BpGPk',
+    dxpy.download_folder('project-G6BJF50JJv8p4PjGB9yy7YQ2',
                          'revel_files/',
                          folder = "/project_resources/revel_files/")
 
@@ -104,6 +104,7 @@ def do_filtering(vcfprefix: str) -> None:
           "(TYPE=\"indel\" & FMT/DP >= 10 & FMT/GQ >= 20)' " \
           "/test/variants.norm.vcf.gz"
     run_cmd(cmd, True)
+    purge_file("variants.norm.vcf.gz") # Purge the original file to save memory
 
     # Add values for missingness and AC/AF
     # +fill-tags is a bcftools nonstandard plugin which calculates INFO fields from available genotypes. Note the non-standard '--' at then end which provides
@@ -117,12 +118,6 @@ def do_filtering(vcfprefix: str) -> None:
     run_cmd(cmd, True)
     purge_file("variants.norm.filtered.vcf.gz")
 
-    # Generate a file for pre-post filtering comparison:
-    # This is the same as above, but just to make sure we have statistics from the unfiltered file to compare to
-    cmd = "bcftools +fill-tags /test/variants.norm.vcf.gz -Oz -o /test/variants.norm.tagged.vcf.gz -- -t F_MISSING,AC,AF,AN"
-    run_cmd(cmd, True)
-    purge_file("variants.norm.vcf.gz")
-
     # Set pass/fail filters within the filtered VCF
     # -s : sets SITES that fail the filtering expression from -i are set to FAIL
     # -i : only include sites as PASS if they meet these requirements
@@ -132,35 +127,6 @@ def do_filtering(vcfprefix: str) -> None:
           "/test/variants.norm.filtered.tagged.vcf.gz"
     run_cmd(cmd, True)
     purge_file("variants.norm.filtered.tagged.vcf.gz")
-
-    ## And generate some stats:
-    # Per Site
-    # From the filtered VCF
-    cmd = "bcftools query -f \"%CHROM\\t%POS\\t%FILTER\\t%F_MISSING\\t%AC\\t%AN\\n\" -o /test/" + vcfprefix + ".filtered_site_stats.tsv /test/variants.norm.filtered.tagged.missingness_filtered.vcf.gz"
-    run_cmd(cmd, True)
-    cmd = "gzip " + vcfprefix + ".filtered_site_stats.tsv"
-    run_cmd(cmd)
-    # From the unfiltered VCF
-    cmd = "bcftools query -f \"%CHROM\\t%POS\\t%FILTER\\t%F_MISSING\\t%AC\\t%AN\\n\" -o /test/" + vcfprefix + ".unfiltered_site_stats.tsv /test/variants.norm.tagged.vcf.gz"
-    run_cmd(cmd, True)
-    cmd = "gzip " + vcfprefix + ".unfiltered_site_stats.tsv"
-    run_cmd(cmd)
-
-    # Per Sample
-    # Get the list of samples queried
-    cmd = "bcftools query -l /test/variants.norm.filtered.tagged.missingness_filtered.vcf.gz > UKBB_samples.txt"
-    run_cmd(cmd, True)
-    # From the filtered VCF
-    cmd = "bcftools stats --threads 4 -S /test/UKBB_samples.txt /test/variants.norm.filtered.tagged.missingness_filtered.vcf.gz > " + vcfprefix + ".filtered_sample_stats.tsv"
-    run_cmd(cmd, True)
-    cmd = "gzip " + vcfprefix + ".filtered_sample_stats.tsv"
-    run_cmd(cmd)
-    # From the unfiltered VCF
-    cmd = "bcftools stats --threads 4 -S /test/UKBB_samples.txt /test/variants.norm.tagged.vcf.gz > " + vcfprefix + ".unfiltered_sample_stats.tsv"
-    run_cmd(cmd, True)
-    cmd = "gzip " + vcfprefix + ".unfiltered_sample_stats.tsv"
-    run_cmd(cmd)
-    purge_file("variants.norm.tagged.vcf.gz")
 
 
 def run_vep() -> None:
@@ -432,10 +398,6 @@ def annotate_vcf_with_vep(vcfprefix: str) -> None:
     run_cmd(cmd, True)
     purge_file("variants.norm.filtered.tagged.missingness_filtered.vcf.gz")
 
-    # Index the file for later processing
-    cmd = "bcftools index --threads 4 -t /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.annotated.vcf.gz"
-    run_cmd(cmd, True)
-
 
 @dxpy.entry_point('main')
 def main(vcf):
@@ -481,21 +443,12 @@ def main(vcf):
     # The second two are simple stats that we can use to make sure everything looks OK
     output_vcf = vcfprefix + ".norm.filtered.tagged.missingness_filtered.annotated.vcf.gz"
     output_vcf_idx = vcfprefix + ".norm.filtered.tagged.missingness_filtered.annotated.vcf.gz.tbi"
-    site_stats_pre_filter = vcfprefix + ".filtered_site_stats.tsv.gz"
-    site_stats_post_filter = vcfprefix + ".unfiltered_site_stats.tsv.gz"
-    indv_stats_pre_filter = vcfprefix + ".filtered_sample_stats.tsv.gz"
-    indv_stats_post_filter = vcfprefix + ".unfiltered_sample_stats.tsv.gz"
 
     # Getting files back into your project directory on DNAnexus is a two-step process:
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
     # (the subdirectory can be controlled on the command-line by adding a flag to `dx run` like: --destination test/)
-    output = {"output_vcf": dxpy.dxlink(dxpy.upload_local_file(output_vcf)),
-              "output_vcf_idx": dxpy.dxlink(dxpy.upload_local_file(output_vcf_idx)),
-              "site_stats_pre_filter": dxpy.dxlink(dxpy.upload_local_file(site_stats_pre_filter)),
-              "site_stats_post_filter": dxpy.dxlink(dxpy.upload_local_file(site_stats_post_filter)),
-              "indv_stats_pre_filter": dxpy.dxlink(dxpy.upload_local_file(indv_stats_pre_filter)),
-              "indv_stats_post_filter": dxpy.dxlink(dxpy.upload_local_file(indv_stats_post_filter))}
+    output = {"output_vcf": dxpy.dxlink(dxpy.upload_local_file(output_vcf))}
 
     # This returns all the information about your exit files to the work managing your job via DNANexus:
     return output
