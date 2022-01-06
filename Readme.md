@@ -240,7 +240,7 @@ I have written custom python code to then prioritize **ONE** annotation per vari
 generated at the end of the prior step and compares all consequence annotations based on the following, ordered, criteria.
 Where the two annotations being compared both fulfill a given criteria, the code moves to the next tier. 
 
-1. Is the consequence for a protein-coding gene?
+1. Is the consequence for a protein-coding *gene*?
 2. Is the consequence for the [MANE transcript](https://www.ncbi.nlm.nih.gov/refseq/MANE/)
 3. Is the consequence for the VEP canonical transcript?
 4. Which consequence is more severe? For this, I have generated a priority score that largely matches that [used by VEP](https://www.ensembl.org/info/genome/variation/prediction/predicted_data.html#consequences).
@@ -294,15 +294,43 @@ This final, annotated vcf represents the output of this applet. See below in [ou
 
 ### Inputs
 
-|input|description             |
-|---- |------------------------|
-|vcf  |Input vcf file to filter|
+|input  |description                                           |
+|------ |------------------------------------------------------|
+|input_vcfs  | List of files from [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter) to annotate filter |
+|threads|Number of threads available to this instance [**64**] |
+
+`input_vcfs` is a file list that **MUST** contain DNANexus file hash keys (e.g. like file-1234567890ABCDEFGHIJ). A simple
+way to generate such a list is with the following bash/perl one-liner:
+
+```commandline
+dx ls -l filtered_vcfs/ukb23148_c7_b*_v1_chunk*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
+```
+
+This command will:
+
+1. Find all filtered vcf files on chromosome 7 and print in dna nexus "long" format which includes a column for file hash (column 7)
+2. Extract the file hash using a perl one-liner and print one file hash per line
+
+The final input file will look something like:
+
+```text
+file-1234567890ABCDEFGHIJ
+file-2345678901ABCDEFGHIJ
+file-3456789012ABCDEFGHIJ
+file-4567890123ABCDEFGHIJ
+```
+
+This file then needs to be uploaded to the DNANexus platform, so it can be provided as input:
+
+```commandline
+dx upload bcf_list.txt
+```
 
 ### Outputs
 
-|output                 |description       |
-|-----------------------|------------------|
-|output_vcf             |  Output VCF with filtered genotypes and sites, annotated with VEP |
+|output                  |description                                                         |
+|------------------------|--------------------------------------------------------------------|
+|output_vcfs             |  Output VCFs with filtered genotypes and sites, annotated with VEP |
 
 ### Command line example
 
@@ -316,7 +344,7 @@ Running this command is fairly straightforward using the DNANexus SDK toolkit. F
 
 ```commandline
 # Using file hash
-dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf=file-Fz7JXxjJYy0zPf5VFJGGgzBP
+dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf=file-Fz7JXxjJYy0zPf5VFJGGgzBP -i
 
 # Using full path
 dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf="Bulk/Exome sequences/Population level exome OQFE variants, pVCF format/ukb23156_c1_b0_v1.vcf.gz"
@@ -329,28 +357,49 @@ dx run mrcepid-filterbcf --help
 ```
 
 Some notes here regarding execution:
-1. For ease of execution, I prefer using the file hash. This is mostly because DNANexus has put lots of spaces in their filepaths 
-   AND it is easier to programmatically access many files at once using hashes as [described below](#batch-running).
+1. For ease of execution, I prefer using the file hash. This is mostly because DNANexus has put lots of spaces in their 
+   filepaths, AND it is easier to programmatically access many files at once using hashes as [described below](#batch-running).
 
 2. Outputs are automatically named based on the prefix of the input vcf full path (this is regardless of if you use hash or full path). So 
    the primary VCF output for the above command-line will be `ukb23156_c1_b0_v1.norm.filtered.tagged.missingness_filtered.annotated.vcf.gz`. 
-   All outputs will be named using a similar convention.   
+   All outputs will be named using a similar convention.
 
 3. I have set a sensible (and tested) default for compute resources on DNANexus that is baked into the json used for building the app (at `dxapp.json`) 
-   so setting an instance type is unnecessary. This current default is for a mem1_ssd1_v2_x4 instance (4 CPUs, 8 Gb RAM, 100Gb storage). 
-   If necessary to adjust compute resources, one can provide a flag like `--instance-type mem1_ssd1_v2_x8`.
+   so setting an instance type is unnecessary. This current default is for a mem3_ssd1_v2_x64 instance (64 CPUs, 512 Gb RAM, 2400Gb storage). This
+   instance prioritises more RAM over other types of instances, which is required for the [normalisation step](#1-split-multiallelic-variants-and-normalise-all-variants)
+   outlined above. **Please note** that this applet is set up for the parallelisation of many files. To run one file, one needs much less 
+   memory. If necessary to adjust compute resources, one can provide a flag like `--instance-type mem3_ssd1_v2_x8` to 
+   `dx run`. If you do change the instance **YOU MUST** change the `threads` input parameter accordingly, or you may run
+   into issues with over-use of CPU resources on the instance.
    
 #### Batch Running
 
-DNANexus have generated a tool to create batch input for running multiple files through this pipeline:
+It is easier to implement batch running manually, rather than use built-in DNANexus batch functionality. In brief, first
+generate a list of all files that need to be run through the process as outlined [above](#inputs):
 
 ```commandline
-dx generate_batch_inputs --path "/Bulk/Exome sequences/Population level exome OQFE variants, pVCF format/" -ivcf='ukb23156_(.*)_v1.vcf.gz$'
+dx ls -l filtered_vcfs/ukb23148_c7_b*_v1_chunk*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
 ```
 
-This will generate files with 500 lines each that have has IDs for all VCF files. One can then modify the above command-line
-to run all VCFs in one of these files like so:
+Then, simply use the *NIX default split command to generate a set of individual files that can work through all the files
+found above on individual instances:
 
 ```commandline
-dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ --batch-tsv dx_batch.0000.tsv
+split -a 1 -l 31 bcf_list.txt bcf_list_
+```
+
+A few important notes on the above:
+1. We set the number of files per-list to 31 (using `-l 31`) because our instance has 64 cores and requires 2 cores per 
+   file. This means we should be able to run a total of 32 files at a time, but we need a core to be able to monitor 
+   these processes, thus why we do 31 files.
+2. We CAN set the number of files to greater than 31, but this means other files need to finish processing before others 
+   can start, meaning runtime will be longer than expected.
+3. This will create files named bcf_list_a, bcf_list_b, bcf_list_c, etc.
+
+Then we upload to dna nexus, and generate a set of commands that will then run this applet:
+
+```commandline
+dx upload bcf_list_* --destination batch_lists/
+dx ls -l batch_lists/bcf_list_* | \ 
+    perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "dx run mrcepid-filterbcf --priority low --yes --brief --destination filtered_vcfs/ -iinput_vcfs=$1;\n";}' | bash
 ```

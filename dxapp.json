@@ -6,26 +6,34 @@
   "version": "0.0.1",
   "inputSpec": [
     {
-      "name": "vcf",
-      "label": "input vcf.gz file",
+      "name": "input_vcfs",
+      "label": "list of input .bcf file(s)",
       "class": "file",
       "optional": false,
       "patterns": [
-        "*.vcf.gz"
+        "*.txt"
       ],
-      "help": "Raw UKBiobank unfiltered VCF"
+      "help": "List of input BCF files from mrcepid-splitbcf."
+    },
+    {
+      "name": "threads",
+      "label": "number of threads available to this instance",
+      "class": "int",
+      "optional": true,
+      "default": 16,
+      "help": "Number of threads available to this instance."
     }
   ],
   "outputSpec": [
     {
-      "name": "output_vcf",
+      "name": "output_vcfs",
       "label": "Output filtered vcf",
-      "class": "file",
+      "class": "array:file",
       "optional": false,
       "patterns": [
-        "*.vcf.gz"
+        "*.bcf"
       ],
-      "help": "VCF filtered and annotated according to this applications parameters"
+      "help": "Filtered output VCF(s) with VEP annotation"
     }
   ],
   "access": {
@@ -36,7 +44,7 @@
   "runSpec": {
     "timeoutPolicy": {
       "*": {
-        "hours": 12
+        "hours": 36
       }
     },
     "interpreter": "python3",
@@ -50,7 +58,7 @@
     "aws:eu-west-2": {
       "systemRequirements": {
         "*": {
-          "instanceType": "mem1_ssd1_v2_x4"
+          "instanceType": "mem2_ssd1_v2_x16"
         }
       }
     }
