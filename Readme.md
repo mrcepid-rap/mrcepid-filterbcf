@@ -102,7 +102,7 @@ with specific directories listed here:
 
 ## Methodology
 
-This applet is step 1 (mrc-filterbcf) of the rare variant testing pipeline developed by Eugene Gardner for the UKBiobank RAP at the MRC
+This applet is step 2 (mrc-filterbcf) of the rare variant testing pipeline developed by Eugene Gardner for the UKBiobank RAP at the MRC
 Epidemiology Unit:
 
 ![](https://github.com/mrcepid-rap/.github/blob/main/images/RAPPipeline.png)
@@ -297,7 +297,6 @@ This final, annotated vcf represents the output of this applet. See below in [ou
 |input  |description                                           |
 |------ |------------------------------------------------------|
 |input_vcfs  | List of files from [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter) to annotate filter |
-|threads|Number of threads available to this instance [**64**] |
 
 `input_vcfs` is a file list that **MUST** contain DNANexus file hash keys (e.g. like file-1234567890ABCDEFGHIJ). A simple
 way to generate such a list is with the following bash/perl one-liner:
@@ -369,8 +368,7 @@ Some notes here regarding execution:
    instance prioritises more RAM over other types of instances, which is required for the [normalisation step](#1-split-multiallelic-variants-and-normalise-all-variants)
    outlined above. **Please note** that this applet is set up for the parallelisation of many files. To run one file, one needs much less 
    memory. If necessary to adjust compute resources, one can provide a flag like `--instance-type mem3_ssd1_v2_x8` to 
-   `dx run`. If you do change the instance **YOU MUST** change the `threads` input parameter accordingly, or you may run
-   into issues with over-use of CPU resources on the instance.
+   `dx run`.
    
 #### Batch Running
 

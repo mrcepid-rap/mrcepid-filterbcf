@@ -14,14 +14,6 @@
         "*.txt"
       ],
       "help": "List of input BCF files from mrcepid-splitbcf."
-    },
-    {
-      "name": "threads",
-      "label": "number of threads available to this instance",
-      "class": "int",
-      "optional": true,
-      "default": 16,
-      "help": "Number of threads available to this instance."
     }
   ],
   "outputSpec": [

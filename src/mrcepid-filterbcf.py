@@ -11,6 +11,7 @@ import dxpy
 import subprocess
 import csv
 import math
+import os
 from concurrent import futures
 from concurrent.futures import ThreadPoolExecutor
 
@@ -471,7 +472,11 @@ def process_vcf(vcf: str) -> dxpy.DXFile:
 
 
 @dxpy.entry_point('main')
-def main(input_vcfs, threads):
+def main(input_vcfs):
+
+    # Get threads available to this instance
+    threads = os.cpu_count()
+    print('Number of threads available: %i' % threads)
 
     # Bring a prepared docker image into our environment so that we can run commands we need:
     # The Dockerfile to build this image is located at resources/Dockerfile
