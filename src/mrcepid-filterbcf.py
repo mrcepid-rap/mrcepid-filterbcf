@@ -219,7 +219,7 @@ def run_vep(vcfprefix: str) -> None:
         # -d :  outputs duplicate transcripts on separate lines. In other words, a gene may have multiple transcripts,
         # and put each transcript and CSQ on a separate line in the tsv file
         # -f : CSQ fields that we want to output into the tsv file
-    cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\n' " \
+    cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\t%Amino_acids\\t%Protein_position\\n' " \
           "-o /test/" + vcfprefix + ".vep_table.tsv /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.vcf.gz"
     run_cmd(cmd, True)
     purge_file(vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.vcf.gz")
@@ -325,13 +325,13 @@ def parse_vep(vcfprefix: str) -> None:
     # And then read it in as a csv.DictReader()
     csv_reader_header = ("CHROM", "POS", "REF", "ALT", "ID", "FILTER", "AF", "prop_missing", "AN", "AC",
                          "mane_transcript", "ENST_ID", "ENSG_ID", "biotype","is_canonical", "symbol", "csq",
-                         "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF")
+                         "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF", "AA", "AApos")
     vep_reader = csv.DictReader(open(vcfprefix + '.vep_table.tsv', 'r', newline = '\n'), delimiter="\t", fieldnames = csv_reader_header, quoting = csv.QUOTE_NONE)
 
     # Next, open a file that will contain (in tabix format tsv) the info we want to add back to the vcf
     # And these are all possible output fields that we want
     annote_writer_header = ("#CHROM", "POS", "REF", "ALT", "mane_transcript", "ENST_ID", "ENSG_ID", "biotype", # OG Fields
-                         "symbol", "csq", "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF", # OG Fields
+                         "symbol", "csq", "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF", "AA", "AApos", # OG Fields
                          "parsed_csq", "is_multiallelic", "is_indel", "minor_allele", "major_allele", "MAF", "MAC") # New Fields
     # Write the header for use with bcftools annotate
     write_annote_header()
