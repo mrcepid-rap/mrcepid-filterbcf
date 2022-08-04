@@ -55,19 +55,6 @@
       }
     },
     {
-      "name": "gnomad_maf_db_idx",
-      "label": "Index for the precompiled gnomAD MAF database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to the index for the precompiled .tsv format file of gnomAD AFs",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45zgQ8JXk89BKx2KXJJZqxF"
-        }
-      }
-    },
-    {
       "name": "revel_db",
       "label": "Precompiled REVEL score database",
       "class": "file",
@@ -81,15 +68,67 @@
       }
     },
     {
-      "name": "revel_db_idx",
-      "label": "Index for the precompiled REVEL score database",
+      "name": "cadd_annotations",
+      "label": "",
       "class": "file",
       "optional": true,
-      "help": "Pointer to the index for the precompiled .tsv format file of REVEL scores",
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
       "default": {
         "$dnanexus_link": {
           "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45xxY0JXk852Z466YVjggVY"
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
+        }
+      }
+    },
+    {
+      "name": "precomputed_cadd_snvs",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
+        }
+      }
+    },
+    {
+      "name": "precomputed_cadd_indels",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
+        }
+      }
+    },
+    {
+      "name": "cadd_annotations",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
+        }
+      }
+    },
+    {
+      "name": "cadd_annotations",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
         }
       }
     }
@@ -128,7 +167,7 @@
     "aws:eu-west-2": {
       "systemRequirements": {
         "*": {
-          "instanceType": "mem2_ssd1_v2_x16"
+          "instanceType": "mem2_ssd1_v2_x36"
         }
       }
     }

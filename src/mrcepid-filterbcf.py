@@ -24,7 +24,11 @@ def run_cmd(cmd: str, is_docker: bool = False) -> None:
     if is_docker:
         # -v here mounts a local directory on an instance (in this case the home dir) to a directory internal to the
         # Docker instance named /test/. This allows us to run commands on files stored on the AWS instance within Docker
-        cmd = "docker run -v /home/dnanexus:/test egardner413/mrcepid-burdentesting " + cmd
+        cmd = "docker run " \
+              "-v /home/dnanexus:/test " \
+              "-v /home/dnanexus/cadd_files/:/CADD-scripts/data/annotations/ " \
+              "-v /home/dnanexus/vep_cadd_files/:/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/ " \
+              "egardner413/mrcepid-burdentesting " + cmd
 
     # Standard python calling external commands protocol
     proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -46,6 +50,27 @@ def purge_file(file: str) -> None:
     run_cmd(cmd)
 
 
+# This function will locate an associated tbi/csi index:
+def find_index(parent_file: dxpy.DXFile, index_suffix: str) -> dxpy.DXFile:
+
+    # Pull the corresponding project ID:
+    project_id = dxpy.PROJECT_CONTEXT_ID
+
+    # First set the likely name of the corresponding index:
+    index_folder = parent_file.describe()['folder']
+    index_name = parent_file.describe()['name'] + '.' + index_suffix
+
+    # Run a dxpy query.
+    # This will fail if no or MULTIPLE indices are found
+    index_object = dxpy.find_one_data_object(more_ok=False, classname='file', project=project_id, folder=index_folder,
+                                             name=index_name, name_mode='exact')
+
+    # Set a dxfile of the index itself:
+    found_index = dxpy.DXFile(dxid=index_object['id'], project=index_object['project'])
+
+    return found_index
+
+
 # This is a helper function to upload a local file and then remove it from the instance.
 # This is different than other applets I have written since CADD takes up so much space.
 # I don't want to have to use a massive instance costing lots of £s!
@@ -58,8 +83,8 @@ def generate_linked_dx_file(file: str) -> dxpy.DXFile:
 
 # This is just to compartmentalise the collection of all the resources I need for this task and
 # get them into the right place
-def ingest_resources(vep_cache: dict, loftee_libraries: dict, gnomad_maf_db: dict, gnomad_maf_db_idx: dict,
-                     revel_db: dict, revel_db_idx: dict) -> None:
+def ingest_resources(vep_cache: dict, loftee_libraries: dict, gnomad_maf_db: dict, revel_db: dict,
+                     cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict) -> None:
 
     # Bring a prepared docker image into our environment so that we can run commands we need:
     # The Dockerfile to build this image is located at resources/Dockerfile
@@ -89,8 +114,9 @@ def ingest_resources(vep_cache: dict, loftee_libraries: dict, gnomad_maf_db: dic
 
     ## 4. gnomAD MAF files:
     os.mkdir("gnomad_files/")
-    dxpy.download_dxfile(dxpy.DXFile(gnomad_maf_db).get_id(), 'gnomad_files/gnomad.tsv.gz')
-    dxpy.download_dxfile(dxpy.DXFile(gnomad_maf_db_idx).get_id(), 'gnomad_files/gnomad.tsv.gz.tbi')
+    gnomad_dx_file = dxpy.DXFile(gnomad_maf_db)
+    dxpy.download_dxfile(gnomad_dx_file.get_id(), 'gnomad_files/gnomad.tsv.gz')
+    dxpy.download_dxfile(find_index(gnomad_dx_file, 'tbi'), 'gnomad_files/gnomad.tsv.gz.tbi')
     # And write a brief gnomad VCF header file so that bcftools knows how to process this data:
     gnomad_header_writer = open('gnomad_files/gnomad.header.txt', 'w')
     gnomad_header_writer.writelines('##INFO=<ID=gnomAD_MAF,Number=1,Type=Float,Description="gnomAD Exomes AF">' + "\n")
@@ -98,8 +124,9 @@ def ingest_resources(vep_cache: dict, loftee_libraries: dict, gnomad_maf_db: dic
 
     ## 5. REVEL files
     os.mkdir("revel_files/")
-    dxpy.download_dxfile(dxpy.DXFile(revel_db).get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz')
-    dxpy.download_dxfile(dxpy.DXFile(revel_db_idx).get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz.tbi')
+    revel_dx_file = dxpy.DXFile(revel_db)
+    dxpy.download_dxfile(revel_dx_file.get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz')
+    dxpy.download_dxfile(find_index(revel_dx_file, 'tbi').get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz.tbi')
 
 
 # Writes a VCF style header that is compatible with bcftools annotate for adding VEP info back into our filtered VCF
@@ -490,14 +517,16 @@ def process_vcf(vcf: str) -> dxpy.DXFile:
 
 
 @dxpy.entry_point('main')
-def main(input_vcfs, vep_cache, loftee_libraries, gnomad_maf_db, gnomad_maf_db_idx, revel_db, revel_db_idx):
+def main(input_vcfs, vep_cache, loftee_libraries, gnomad_maf_db, revel_db,
+         cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels):
 
     # Get threads available to this instance
     threads = os.cpu_count()
     print('Number of threads available: %i' % threads)
 
     # Separate function to acquire necessary resource files
-    ingest_resources(vep_cache, loftee_libraries, gnomad_maf_db, gnomad_maf_db_idx, revel_db, revel_db_idx)
+    ingest_resources(vep_cache, loftee_libraries, gnomad_maf_db, revel_db,
+                     cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels)
 
     # Write a single VCF header file for later:
     write_annote_header()
