@@ -14,6 +14,84 @@
         "*.txt"
       ],
       "help": "List of input BCF files from mrcepid-splitbcf."
+    },
+    {
+      "name": "vep_cache",
+      "label": "VEP cache from ENSEMBL",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
+        }
+      }
+    },
+    {
+      "name": "loftee_libraries",
+      "label": "Precompiled LOFTEE resources",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the tar.gz file of loftee databases on DNA nexus",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G4588p0JXk8Jf9y2KG727pB6"
+        }
+      }
+    },
+    {
+      "name": "gnomad_maf_db",
+      "label": "Precompiled gnomAD MAF database",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to a precompiled .tsv format file of gnomAD AFs",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G45zfxjJXk8Bjjb1531PfZ2G"
+        }
+      }
+    },
+    {
+      "name": "gnomad_maf_db_idx",
+      "label": "Index for the precompiled gnomAD MAF database",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the index for the precompiled .tsv format file of gnomAD AFs",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G45zgQ8JXk89BKx2KXJJZqxF"
+        }
+      }
+    },
+    {
+      "name": "revel_db",
+      "label": "Precompiled REVEL score database",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to a precompiled .tsv format file of REVEL scores",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G45xxKQJXk8KB6kKKG2ZQ9Zx"
+        }
+      }
+    },
+    {
+      "name": "revel_db_idx",
+      "label": "Index for the precompiled REVEL score database",
+      "class": "file",
+      "optional": true,
+      "help": "Pointer to the index for the precompiled .tsv format file of REVEL scores",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G45xxY0JXk852Z466YVjggVY"
+        }
+      }
     }
   ],
   "outputSpec": [

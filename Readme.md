@@ -36,7 +36,7 @@ platform has a hash ID like:
 
 Information about files and projects can be queried using the `dx describe` tool native to the DNANexus SDK:
 
-```commandline
+```shell
 dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
@@ -128,7 +128,7 @@ The filtering approach used has several caveats:
 I use `bcftools norm` to first split all multi-allelic variants (e.g. any variant with a REF/ALT VCF field like A T;C into
 two separate fields):
 
-```commandline
+```shell
 bcftools norm --threads 4 -Oz -o variants.norm.vcf.gz -m - -f reference.fasta variants.vcf.gz
 ```
 
@@ -144,7 +144,7 @@ two-step process:
 
 1. Check per-sample genotypes:
 
-```commandline
+```shell
 bcftools filter -Oz -o /test/variants.norm.filtered.vcf.gz -S . \
           -i '(TYPE="snp" & FMT/DP >= 7 & ((FMT/GT="RR" & FMT/GQ >= 20) |  \
           (FMT/GT="RA" & FMT/GQ >= 20 & binom(FMT/AD) > 0.001) |  \
@@ -174,8 +174,8 @@ SNP/InDel). Thus, I am going to break it down here. In brief, the `-i` parameter
 
 First we calculate per-allele missingness using the bcftools plugin `bcftools +fill-tags`:
 
-```commandline
-"bcftools +fill-tags variants.norm.filtered.vcf.gz -Oz -o \
+```shell
+bcftools +fill-tags variants.norm.filtered.vcf.gz -Oz -o \
           variants.norm.filtered.tagged.vcf.gz -- -t F_MISSING,AC,AF,AN
 ```
 
@@ -187,7 +187,7 @@ This just tells bcftools to set the vcf FILTER tag to `FAIL` if the allele does 
 * Having missingness ≤ 50%
 * Have an allele count > 0
 
-```commandline
+```shell
 # First calculate missingness
 bcftools filter -i 'F_MISSING<=0.50 & AC!=0' -s 'FAIL' -Oz -o \
           variants.norm.filtered.tagged.missingness_filtered.vcf.gz \
@@ -203,7 +203,7 @@ for more information on what each flag here means. VEP annotation runs in three 
 2. Running of VEP
 3. Using `bcftools annotate` to add gnomAD MAF information for all alleles
 
-```commandline
+```shell
 # Generate a sites file from our filtered VCF
 bcftools view -G -Oz -o variants.norm.filtered.tagged.missingness_filtered.sites.vcf.gz \
           variants.norm.filtered.tagged.missingness_filtered.vcf.gz
@@ -229,7 +229,7 @@ information on how this tool works. In brief `-d` causes each **d**uplicate VEP 
 by `,` and typically representing transcripts) to be split into a separate row in the tab-delimited file with the
 information requested with `-f`.
 
-```commandline
+```shell
 bcftools +split-vep -df '%CHROM\t%POS\t%REF\t%ALT\t%ID\t%FILTER\t%INFO/AF\t%F_MISSING\t%AN\t%AC\t%MANE_SELECT\t%Feature\t%Gene\t%BIOTYPE\t%CANONICAL\t%SYMBOL\t%Consequence\t%gnomAD_MAF\t%REVEL\t%SIFT\t%PolyPhen\t%LoF\n' \
           -o variants.vep_table.tsv variants.norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.vcf.gz
 ```
@@ -248,7 +248,7 @@ Where the two annotations being compared both fulfill a given criteria, the code
    similar consequences together. Variants with a score closer to 0 are considered more damaging:
 
 | VEP Consequence (CSQ)             | score | type       |
-| --------------------------------- | ----- | ---------- |
+|-----------------------------------|-------|------------|
 | stop_gained                       | 1     | PTV        |
 | frameshift_variant                | 2     | PTV        |
 | splice_acceptor_variant           | 3     | PTV        |
@@ -279,7 +279,7 @@ For information on these annotations, please see the README for the next applet 
 
 Filtered VCFs are then annotated with information provided by VEP using `bcftools annotate`:
 
-```commandline
+```shell
 bcftools annotate -a variants.vep_table.annote.tsv.gz \ 
           -c "CHROM,POS,REF,ALT,MANE,ENST,ENSG,BIOTYPE,SYMBOL,CSQ,gnomAD_AF,REVEL,SIFT,POLYPHEN,LOFTEE,PARSED_CSQ,MULTI,INDEL,MINOR,MAJOR,MAF,MAC " \
           -h variants.header.txt -Oz -o variants.norm.filtered.tagged.missingness_filtered.annotated.vcf.gz variants.norm.filtered.tagged.missingness_filtered.vcf.gz
@@ -294,14 +294,14 @@ This final, annotated vcf represents the output of this applet. See below in [ou
 
 ### Inputs
 
-|input  |description                                           |
-|------ |------------------------------------------------------|
-|input_vcfs  | List of files from [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter) to annotate filter |
+| input      | description                                                                                                     |
+|------------|-----------------------------------------------------------------------------------------------------------------|
+| input_vcfs | List of files from [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter) to annotate filter |
 
 `input_vcfs` is a file list that **MUST** contain DNANexus file hash keys (e.g. like file-1234567890ABCDEFGHIJ). A simple
 way to generate such a list is with the following bash/perl one-liner:
 
-```commandline
+```shell
 dx ls -l filtered_vcfs/ukb23148_c7_b*_v1_chunk*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
 ```
 
@@ -321,15 +321,28 @@ file-4567890123ABCDEFGHIJ
 
 This file then needs to be uploaded to the DNANexus platform, so it can be provided as input:
 
-```commandline
+```shell
 dx upload bcf_list.txt
 ```
 
+There are also several command-line inputs that should not need to be changed if running from within application 9905. These
+mostly have to do with the underlying inputs to models that are generated by other tools in this pipeline. We have set
+sensible defaults for these files and only change them if running from a different set of filtered data.
+
+| input             | description                                                                                                                                                     | default file (all in `project-G6BJF50JJv8p4PjGB9yy7YQ2`) | 
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
+| vep_cache         | Pointer to the VEP cache stored on DNA nexus. Current default is v107                                                                                           | `file-G7FKjxjJJv8q0Q4kF1ypbKv3`                          |
+| loftee_libraries  | Pointer to the tar.gz file of loftee databases on DNA nexus. See the [loftee github page](https://github.com/konradjk/loftee/tree/grch38) for more information. | `file-G4588p0JXk8Jf9y2KG727pB6`                          |
+| gnomad_maf_db     | Pointer to a precompiled .tsv format file of gnomAD AFs. Calculated from gnomAD v2 vcf files for Non-Finish European individuals.                               | `file-G45zfxjJXk8Bjjb1531PfZ2G`                          |
+| gnomad_maf_db_idx | Index for the precompiled gnomAD MAF database                                                                                                                   | `file-G45zgQ8JXk89BKx2KXJJZqxF`                          |
+| revel_db          | Precompiled REVEL score database. See the [REVEL](https://sites.google.com/site/revelgenomics/) website for more information.                                   | `file-G45xxKQJXk8KB6kKKG2ZQ9Zx`                          |
+| revel_db_idx      | Index for the precompiled REVEL score database                                                                                                                  | `file-G45xxY0JXk852Z466YVjggVY`                          |
+
 ### Outputs
 
-|output                  |description                                                         |
-|------------------------|--------------------------------------------------------------------|
-|output_vcfs             |  Output VCFs with filtered genotypes and sites, annotated with VEP |
+| output      | description                                                       |
+|-------------|-------------------------------------------------------------------|
+| output_vcfs | Output VCFs with filtered genotypes and sites, annotated with VEP |
 
 ### Command line example
 
@@ -341,7 +354,7 @@ https://github.com/mrcepid-rap
 Running this command is fairly straightforward using the DNANexus SDK toolkit. For the input vcf (provided with the flag 
 `-ivcf`) one can use either the file hash OR the full path:
 
-```commandline
+```shell
 # Using file hash
 dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf=file-Fz7JXxjJYy0zPf5VFJGGgzBP -i
 
@@ -351,7 +364,7 @@ dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf="Bulk
 
 Brief I/O information can also be retrieved on the command line:
 
-```commandline
+```shell
 dx run mrcepid-filterbcf --help
 ```
 
@@ -375,14 +388,14 @@ Some notes here regarding execution:
 It is easier to implement batch running manually, rather than use built-in DNANexus batch functionality. In brief, first
 generate a list of all files that need to be run through the process as outlined [above](#inputs):
 
-```commandline
-dx ls -l filtered_vcfs/ukb23148_c7_b*_v1_chunk*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
+```shell
+dx ls -l filtered_vcfs/*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
 ```
 
 Then, simply use the *NIX default split command to generate a set of individual files that can work through all the files
 found above on individual instances:
 
-```commandline
+```shell
 split -a 1 -l 31 bcf_list.txt bcf_list_
 ```
 
@@ -396,7 +409,7 @@ A few important notes on the above:
 
 Then we upload to dna nexus, and generate a set of commands that will then run this applet:
 
-```commandline
+```shell
 dx upload bcf_list_* --destination batch_lists/
 dx ls -l batch_lists/bcf_list_* | \ 
     perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "dx run mrcepid-filterbcf --priority low --yes --brief --destination filtered_vcfs/ -iinput_vcfs=$1;\n";}' | bash
