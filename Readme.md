@@ -431,7 +431,7 @@ Some notes here regarding execution:
    will be named using a similar convention.
 
 3. I have set a sensible (and tested) default for compute resources on DNANexus that is baked into the json used for building the app (at `dxapp.json`) 
-   so setting an instance type is unnecessary. This current default is for a mem3_ssd1_v2_x32 instance (32 CPUs, 256 Gb RAM, 1200Gb storage). This
+   so setting an instance type is unnecessary. This current default is for a mem2_ssd1_v2_x32 instance (32 CPUs, 128 Gb RAM, 1200Gb storage). This
    instance prioritises more RAM over other types of instances, which is required for the [normalisation step](#1-split-multiallelic-variants-and-normalise-all-variants)
    outlined above. **Please note** that this applet is set up for the parallelisation of many files. To run one file, one needs much less 
    memory. If necessary to adjust compute resources, one can provide a flag like `--instance-type mem3_ssd1_v2_x8` to 
