@@ -16,6 +16,42 @@
       "help": "List of input BCF files from mrcepid-splitbcf."
     },
     {
+      "name": "coordinates_name",
+      "label": "Name of the output coordinates file",
+      "class": "string",
+      "optional": false,
+      "patterns": [
+        "*"
+      ],
+      "help": "Name of the output coordinates file."
+    },
+    {
+      "name": "human_reference",
+      "label": "Human reference genome",
+      "class": "file",
+      "optional": true,
+      "help": "GRCh38 human reference genome",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-Fx2x0fQJ06KfqV7Y3fFZq1jp",
+          "id": "file-Fx2x270Jx0j17zkb3kbBf6q2"
+        }
+      }
+    },
+    {
+      "name": "human_reference_index",
+      "label": "Human reference genome .fai index",
+      "class": "file",
+      "optional": true,
+      "help": "GRCh38 human reference genome .fai index",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-Fx2x0fQJ06KfqV7Y3fFZq1jp",
+          "id": "file-Fx2x21QJ06f47gV73kZPjkQQ"
+        }
+      }
+    },
+    {
       "name": "vep_cache",
       "label": "VEP cache from ENSEMBL",
       "class": "file",
@@ -55,19 +91,6 @@
       }
     },
     {
-      "name": "gnomad_maf_db_idx",
-      "label": "Index for the precompiled gnomAD MAF database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to the index for the precompiled .tsv format file of gnomAD AFs",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45zgQ8JXk89BKx2KXJJZqxF"
-        }
-      }
-    },
-    {
       "name": "revel_db",
       "label": "Precompiled REVEL score database",
       "class": "file",
@@ -81,29 +104,105 @@
       }
     },
     {
-      "name": "revel_db_idx",
-      "label": "Index for the precompiled REVEL score database",
+      "name": "cadd_annotations",
+      "label": "CADD annotations",
       "class": "file",
       "optional": true,
-      "help": "Pointer to the index for the precompiled .tsv format file of REVEL scores",
+      "help": "Pointer to annotations used by CADD to compute variant deleteriousness scores.",
       "default": {
         "$dnanexus_link": {
           "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45xxY0JXk852Z466YVjggVY"
+          "id": "file-G44Vjb8JGV7fYJYj35k8j9Yv"
+        }
+      }
+    },
+    {
+      "name": "precomputed_cadd_snvs",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": ".tsv.gz file of all possible pre-computed SNVs in the GRCh38 human reference genome.",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G44X7KjJKBQfYJYj35k8jK45"
+        }
+      }
+    },
+    {
+      "name": "precomputed_cadd_indels",
+      "label": "",
+      "class": "file",
+      "optional": true,
+      "help": ".tsv.gz file of all gnomAD v3.0 InDels in GRCh38 human reference coordinates.",
+      "default": {
+        "$dnanexus_link": {
+          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
+          "id": "file-G44X2b0JXk8Kgyk6GYk8j92p"
         }
       }
     }
   ],
   "outputSpec": [
     {
-      "name": "output_vcfs",
-      "label": "Output filtered vcf",
+      "name": "output_bcfs",
+      "label": "Output filtered bcfs",
       "class": "array:file",
       "optional": false,
       "patterns": [
         "*.bcf"
       ],
-      "help": "Filtered output VCF(s) with VEP annotation"
+      "help": "Output BCF(s) with CADD annotation"
+    },
+    {
+      "name": "output_bcf_idxs",
+      "label": "Output filtered bcf indices",
+      "class": "array:file",
+      "optional": false,
+      "patterns": [
+        "*.bcf.csi"
+      ],
+      "help": "Associated indices for output BCF(s)"
+    },
+    {
+      "name": "output_veps",
+      "label": "Output VEP annotations",
+      "class": "array:file",
+      "optional": false,
+      "patterns": [
+        "*.tsv.gz"
+      ],
+      "help": "Tabix indexed TSV file(s) with per-variant annotation information"
+    },
+    {
+      "name": "output_vep_idxs",
+      "label": "Output VEP annotations index",
+      "class": "array:file",
+      "optional": false,
+      "patterns": [
+        "*.tsv.gz.tbi"
+      ],
+      "help": "Associated indices for TSV file(s)"
+    },
+    {
+      "name": "output_per_samples",
+      "label": "Output per sample consequence annotations",
+      "class": "array:file",
+      "optional": false,
+      "patterns": [
+        "*.tsv"
+      ],
+      "help": "Per-sample variants with AF < 1e-3 for QC."
+    },
+    {
+      "name": "coordinates_file",
+      "label": "Coordinates of each bcf processed by this job",
+      "class": "file",
+      "optional": false,
+      "patterns": [
+        "*.tsv"
+      ],
+      "help": "Coordinates of each bcf processed by this job."
     }
   ],
   "access": {
@@ -128,7 +227,7 @@
     "aws:eu-west-2": {
       "systemRequirements": {
         "*": {
-          "instanceType": "mem2_ssd1_v2_x16"
+          "instanceType": "mem2_ssd1_v2_x32"
         }
       }
     }

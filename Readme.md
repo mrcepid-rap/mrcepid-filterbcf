@@ -5,22 +5,22 @@ For more information about how to run or modify it, see
 https://documentation.dnanexus.com/.
 
 ### Table of Contents
+
 - [Introduction](#introduction)
-    * [Background](#background)
-    * [Dependencies](#dependencies)
-        + [Docker](#docker)
-        + [Resource Files](#resource-files)
+  * [Background](#background)
+  * [Dependencies](#dependencies)
+    + [Docker](#docker)
+    + [Resource Files](#resource-files)
 - [Methodology](#methodology)
-    * [Potential Caveats to this Approach](#potential-caveats-to-this-approach)
-    * [1. Split multiallelic variants and normalise all variants](#1-split-multiallelic-variants-and-normalise-all-variants)
-    * [2. Perform variant filtering](#2-perform-variant-filtering)
-    * [3. VEP annotation](#3-vep-annotation)
-    * [4. Parsing VEP consequences](#4-parsing-vep-consequences)
+  * [Potential Caveats to this Approach](#potential-caveats-to-this-approach)
+  * [1. Split multiallelic variants and normalise all variants](#1-split-multiallelic-variants-and-normalise-all-variants)
+  * [2. Perform variant filtering](#2-perform-variant-filtering)
+  * [3. VEP, gnomAD, and CADD annotation](#3-vep--gnomad--and-cadd-annotation)
+  * [4. Parsing VEP consequences](#4-parsing-vep-consequences)
 - [Running on DNANexus](#running-on-dnanexus)
-    * [Inputs](#inputs)
-    * [Outputs](#outputs)
-    * [Command line example](#command-line-example)
-        + [Batch Running](#batch-running)
+  * [Inputs](#inputs)
+  * [Outputs](#outputs)
+  * [Command line example](#command-line-example)
     
 ## Introduction
 
@@ -82,6 +82,8 @@ are:
     * [REVEL](https://github.com/Ensembl/VEP_plugins/blob/release/104/REVEL.pm)
 * [plink1.9](https://www.cog-genomics.org/plink2)
 * [plink2](https://www.cog-genomics.org/plink/2.0/)
+* [cadd](https://cadd.gs.washington.edu/)
+    * For more details on how to install CADD, please see the [CADD github repo](https://github.com/kircherlab/CADD-scripts/)
 
 This list is not exhaustive and does not include dependencies of dependencies and software needed
 to acquire other resources (e.g. wget). See the referenced Dockerfile for more information.
@@ -99,13 +101,15 @@ with specific directories listed here:
 * Files required for the loftee vep plugin. These files are downloaded from a variety of sources. See [here](https://github.com/konradjk/loftee/tree/grch38) for more details – `project_resources/loftee_files/`
 * gnomADv3 MAF files available from [gnomAD](https://gnomad.broadinstitute.org/downloads). This is a simple tabix indexed file for use with `bcftools annotate`  – `project_resources/gnomad_files/`
 * REVEL tabix indexed files from [REVEL](https://sites.google.com/site/revelgenomics/downloads) for use with the REVEL vep plugin – `project_resources/revel_files/`
+* CADD resource files downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download) – `/project_resources/cadd_files/` 
+* CADD known VEP hg38 cache downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download)- `/project_resources/vep_cadd_files/`
 
 ## Methodology
 
 This applet is step 2 (mrc-filterbcf) of the rare variant testing pipeline developed by Eugene Gardner for the UKBiobank RAP at the MRC
 Epidemiology Unit:
 
-![](https://github.com/mrcepid-rap/.github/blob/main/images/RAPPipeline.png)
+![](https://github.com/mrcepid-rap/.github/blob/main/images/RAPPipeline.v3.png)
 
 As transparency regarding how variant filtering is performed is crucial, I have documented each step that this applet performs below.
 Code in this section is meant for example purposes only. For more details, please see the commented source code available at
@@ -121,7 +125,6 @@ The filtering approach used has several caveats:
 3. Unsure of how well this QC works on the Y-chromosome.
 4. The above quality control does not include any sample-level variant QC. This is assuming that UKB (a.k.a. Regeneron)
    does reasonable sample-level QC and excludes any samples that fail various filters.
-
 
 ### 1. Split multiallelic variants and normalise all variants
 
@@ -194,14 +197,15 @@ bcftools filter -i 'F_MISSING<=0.50 & AC!=0' -s 'FAIL' -Oz -o \
           variants.norm.filtered.tagged.vcf.gz
 ```
 
-### 3. VEP annotation
+### 3. VEP, gnomAD, and CADD annotation
 
 This step is relatively straightforward from a "running VEP" standpoint. Please see VEP documentation on [input options](https://www.ensembl.org/info/docs/tools/vep/script/vep_options.html#basic)
 for more information on what each flag here means. VEP annotation runs in three separate steps:
 
 1. Conversion of the filtered VCF into a sites vcf to speedup VEP annotation
 2. Running of VEP
-3. Using `bcftools annotate` to add gnomAD MAF information for all alleles
+3. Running of CADD
+4. Using `bcftools annotate` to add gnomAD MAF and CADD score information for all alleles
 
 ```shell
 # Generate a sites file from our filtered VCF
@@ -216,6 +220,9 @@ perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxE
           --dir_plugins ensembl-vep/cache/Plugins/ \
           --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw \
           --plugin REVEL,revel_files/new_tabbed_revel_grch38.tsv.gz
+
+# Run CADD
+CADD-scripts/CADD.sh -g GRCh38 -c 2 -o variants.cadd.tsv.gz variants.vcf
           
 # gnomAD MAF information per-allele is added:
 bcftools annotate -a gnomad_files/gnomad.tsv.gz -c CHROM,POS,REF,ALT,-,gnomAD_MAF \
@@ -329,20 +336,67 @@ There are also several command-line inputs that should not need to be changed if
 mostly have to do with the underlying inputs to models that are generated by other tools in this pipeline. We have set
 sensible defaults for these files and only change them if running from a different set of filtered data.
 
-| input             | description                                                                                                                                                     | default file (all in `project-G6BJF50JJv8p4PjGB9yy7YQ2`) | 
-|-------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------|
-| vep_cache         | Pointer to the VEP cache stored on DNA nexus. Current default is v107                                                                                           | `file-G7FKjxjJJv8q0Q4kF1ypbKv3`                          |
-| loftee_libraries  | Pointer to the tar.gz file of loftee databases on DNA nexus. See the [loftee github page](https://github.com/konradjk/loftee/tree/grch38) for more information. | `file-G4588p0JXk8Jf9y2KG727pB6`                          |
-| gnomad_maf_db     | Pointer to a precompiled .tsv format file of gnomAD AFs. Calculated from gnomAD v2 vcf files for Non-Finish European individuals.                               | `file-G45zfxjJXk8Bjjb1531PfZ2G`                          |
-| gnomad_maf_db_idx | Index for the precompiled gnomAD MAF database                                                                                                                   | `file-G45zgQ8JXk89BKx2KXJJZqxF`                          |
-| revel_db          | Precompiled REVEL score database. See the [REVEL](https://sites.google.com/site/revelgenomics/) website for more information.                                   | `file-G45xxKQJXk8KB6kKKG2ZQ9Zx`                          |
-| revel_db_idx      | Index for the precompiled REVEL score database                                                                                                                  | `file-G45xxY0JXk852Z466YVjggVY`                          |
+| input                   | description                                                                                                                                                                                                                                                      | default file (majority in `project-G6BJF50JJv8p4PjGB9yy7YQ2`) | 
+|-------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
+| human_reference         | GRCh38 human reference genome. This file is available as part of standard DNANexus resources in project `project-Fx2x0fQJ06KfqV7Y3fFZq1jp`.                                                                                                                      | `file-Fx2x270Jx0j17zkb3kbBf6q2`                               |
+| human_reference_index   | GRCh38 human reference genome .fai index. This file is available as part of standard DNANexus resources in project `project-Fx2x0fQJ06KfqV7Y3fFZq1jp`.                                                                                                           | `file-Fx2x21QJ06f47gV73kZPjkQQ`                               |
+| vep_cache               | Pointer to the VEP cache stored on DNA nexus. Current default is v107                                                                                                                                                                                            | `file-G7FKjxjJJv8q0Q4kF1ypbKv3`                               |
+| loftee_libraries        | Pointer to the tar.gz file of loftee databases on DNA nexus. See the [loftee github page](https://github.com/konradjk/loftee/tree/grch38) for more information.                                                                                                  | `file-G4588p0JXk8Jf9y2KG727pB6`                               |
+| gnomad_maf_db           | Pointer to a precompiled .tsv format file of gnomAD AFs. Calculated from gnomAD v2 vcf files for Non-Finish European individuals. A corresponding `.tbi` index MUST be located at the same location as this file!                                                | `file-G45zfxjJXk8Bjjb1531PfZ2G`                               |
+| revel_db                | Precompiled REVEL score database. See the [REVEL](https://sites.google.com/site/revelgenomics/) website for more information. A corresponding `.tbi` index MUST be located at the same location as this file!                                                    | `file-G45xxKQJXk8KB6kKKG2ZQ9Zx`                               |
+| cadd_annotations        | Pointer to annotations used by CADD to compute variant deleteriousness scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information.                                                                                        | `file-G44Vjb8JGV7fYJYj35k8j9Yv`                               |
+| precomputed_cadd_snvs   | `tsv.gz` file of all possible SNVs in the human genome with pre-computed CADD scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information. A corresponding `.tbi` index MUST be located at the same location as this file! | `file-G44X7KjJKBQfYJYj35k8jK45`                               |
+| precomputed_cadd_indels | `tsv.gz` file of all gnomAD3.0 InDels with pre-computed CADD scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information. A corresponding `.tbi` index MUST be located at the same location as this file!                  | `file-G44X2b0JXk8Kgyk6GYk8j92p`                               |
 
 ### Outputs
 
-| output      | description                                                       |
-|-------------|-------------------------------------------------------------------|
-| output_vcfs | Output VCFs with filtered genotypes and sites, annotated with VEP |
+| output             | description                                                                      |
+|--------------------|----------------------------------------------------------------------------------|
+| output_bcfs        | Output VCF(s) with filtered genotypes and sites, annotated with CADD             |
+| output_bcf_idxs    | .csi index files for `output_vcfs`                                               |
+| output_veps        | tabix indexed TSV file with all variants from `outputvcfs` with annotations      |
+| output_vep_idxs    | .tbi index files for `output_veps`                                               |
+| output_per_samples | .tsv file of variants per-individual to collate number of variants per person    |
+| coordinates_file   | tab-delimited chromosome/start/stop and DNANexus file IDs for each bcf processed |
+
+`output_vcfs` is a standard vcf.gz format file with INFO fields derived from VEP annotations. These fields are identical 
+to those in the paired .tsv.gz file provided with the `output_veps` output. These are the following (note that `varID` is
+added during the following `makebgen` step):
+
+| INFO Field  | row number in .tsv.gz | Field dtype (pandas) | Possible Levels (If Factor)                                                                                       | Short Description                                                                                                                                                                                           |
+|-------------|-----------------------|----------------------|-------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| CHROM       | 1                     | object               | chr1-chr22,chrX, chrY                                                                                             | chromosome of variant                                                                                                                                                                                       |
+| POS         | 2                     | int64                | NA                                                                                                                | position of variant                                                                                                                                                                                         |
+| REF         | 3                     | object               | NA                                                                                                                | reference allele (Note that this is not major/minor allele!)                                                                                                                                                |
+| ALT         | 4                     | object               | NA                                                                                                                | alternate allele (Note that this is not major/minor allele!)                                                                                                                                                |
+| varID       | 5                     | object               | NA                                                                                                                | variant ID. Simple a concatenation like CHROM:POS:REF:ALT. This ID should be used to match on per-marker association test results.                                                                          |
+| ogVarID     | 6                     | object               | NA                                                                                                                | original variant ID in UKBiobank VCF files. **Note:** This ID SHOULD NOT be used to match on association test results. It is included for posterity and to allow matching on original UK Biobank VCF files. |
+| FILTER      | 7                     | object               | PASS, FAIL                                                                                                        | Did this variant pass QC?                                                                                                                                                                                   |
+| AF          | 8                     | float64              | NA                                                                                                                | Allele Frequency of the allele listed in `ALT`                                                                                                                                                              |
+| F_MISSING   | 9                     | float64              | NA                                                                                                                | Proportion of missing (./.) genotypes                                                                                                                                                                       |
+| AN          | 10                    | int64                | NA                                                                                                                | Number of possible alleles ([sample size - n.missing] * 2)                                                                                                                                                  |
+| AC          | 11                    | int64                | NA                                                                                                                | Number of non-reference alleles of the allele listed in `ALT`                                                                                                                                               |
+| MANE        | 12                    | object               | NA                                                                                                                | The [MANE](https://www.ncbi.nlm.nih.gov/refseq/MANE/) transcript for this variant                                                                                                                           |
+| ENST        | 13                    | object               | NA                                                                                                                | ENSEMBL transcript (e.g. ENST) for this variant                                                                                                                                                             |
+| ENSG        | 14                    | object               | NA                                                                                                                | ENSEMBL gene (e.g. ENSG) for this variant                                                                                                                                                                   | 
+| BIOTYPE     | 15                    | object               | protein_coding                                                                                                    | VEP [biotype](https://m.ensembl.org/info/genome/genebuild/biotypes.html) of the ENST.                                                                                                                       |
+| SYMBOL      | 16                    | object               | NA                                                                                                                | [HGNC Gene](https://www.genenames.org/) symbol                                                                                                                                                              | 
+| CSQ         | 17                    | object               | All possible values in [this table](https://m.ensembl.org/info/genome/variation/prediction/predicted_data.html).  | VEP annotated [CSQ](https://m.ensembl.org/info/genome/variation/prediction/predicted_data.html)                                                                                                             |
+| gnomAD_AF   | 18                    | float64              | NA                                                                                                                | Non-Finnish European allele frequency of this variant in gnomAD exomes. 0 if not in gnomAD                                                                                                                  |
+| CADD        | 19                    | float64              | NA                                                                                                                | [CADDv1.6](https://cadd.gs.washington.edu/) phred score                                                                                                                                                     |
+| REVEL       | 20                    | float64              | NA                                                                                                                | [REVEL](https://sites.google.com/site/revelgenomics/) score for this variant if CSQ is "missense", else nan                                                                                                 |
+| SIFT        | 21                    | object               | NA                                                                                                                | [SIFT](https://sift.bii.a-star.edu.sg/) score for this variant if CSQ is "missense", else NA                                                                                                                |
+| POLYPHEN    | 22                    | object               | NA                                                                                                                | [POLYPHEN](http://genetics.bwh.harvard.edu/pph2/) score for this variant if CSQ is "missense", else NA                                                                                                      |
+| LOFTEE      | 23                    | object               | HC,LC                                                                                                             | [LOFTEE score](https://github.com/konradjk/loftee) for this variant if PARSED_CSQ is "PTV", else NA. Variants with a "HC" value are high-confidence and should be retained for testing                      |
+| AA          | 24                    | object               | NA                                                                                                                | The amino acid change if a missense, InDel, or PTV variant                                                                                                                                                  |
+| AApos       | 25                    | object               | NA                                                                                                                | The position of this variant in the translated protein of this ENST (based on associated ENSP ID)                                                                                                           |
+| PARSED_CSQ  | 26                    | object               | All possible values in [this table](https://github.com/mrcepid-rap/mrcepid-filterbcf#4-parsing-vep-consequences). | Eugene-determined consequence. See the README for [mrcepid-filterbcf](https://github.com/mrcepid-rap/mrcepid-filterbcf) for more information                                                                |
+| MULTI       | 27                    | bool                 | True, False                                                                                                       | Was this variant original multiallelic? Determined based on presence of at least one ";" in the ID field                                                                                                    |
+| INDEL       | 28                    | bool                 | True, False                                                                                                       | Is this variant an InDel? True if len(REF) != len(ALT)                                                                                                                                                      | 
+| MINOR       | 29                    | object               | NA                                                                                                                | The minor allele for this variant. Will be the same as ALT if AF < 0.5                                                                                                                                      |
+| MAJOR       | 30                    | object               | NA                                                                                                                | The minor allele for this variant. Will be the same as REF if AF < 0.5                                                                                                                                      |
+| MAF         | 31                    | float64              | NA                                                                                                                | The minor allele frequency for this variant. Will be the same as AF if AF < 0.5                                                                                                                             |
+| MAC         | 32                    | int64                | NA                                                                                                                | The minor allele count for this variant. Will be the same as AC if AF < 0.5                                                                                                                                 |
 
 ### Command line example
 
@@ -352,14 +406,14 @@ organisational documentation on how to download and build this app on the DNANex
 https://github.com/mrcepid-rap
 
 Running this command is fairly straightforward using the DNANexus SDK toolkit. For the input vcf (provided with the flag 
-`-ivcf`) one can use either the file hash OR the full path:
+`-iinputvcf`) one can use either the file hash OR the full path:
 
 ```shell
 # Using file hash
-dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf=file-Fz7JXxjJYy0zPf5VFJGGgzBP -i
+dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -iinputvcfs=file-Fz7JXxjJYy0zPf5VFJGGgzBP
 
 # Using full path
-dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -ivcf="Bulk/Exome sequences/Population level exome OQFE variants, pVCF format/ukb23156_c1_b0_v1.vcf.gz"
+dx run mrcepid-filterbcf --priority low --destination filtered_vcfs/ -iinputvcfs=bcf_list.txt
 ```
 
 Brief I/O information can also be retrieved on the command line:
@@ -370,47 +424,15 @@ dx run mrcepid-filterbcf --help
 
 Some notes here regarding execution:
 1. For ease of execution, I prefer using the file hash. This is mostly because DNANexus has put lots of spaces in their 
-   filepaths, AND it is easier to programmatically access many files at once using hashes as [described below](#batch-running).
+   filepaths, AND it is easier to programmatically access many files at once using hashes.
 
 2. Outputs are automatically named based on the prefix of the input vcf full path (this is regardless of if you use hash or full path). So 
-   the primary VCF output for the above command-line will be `ukb23156_c1_b0_v1.norm.filtered.tagged.missingness_filtered.annotated.vcf.gz`. 
-   All outputs will be named using a similar convention.
+   the primary VCF output for the above command-line will be `ukb23156_c1_b0_v1.filtered_annotated.bcf`. All outputs 
+   will be named using a similar convention.
 
 3. I have set a sensible (and tested) default for compute resources on DNANexus that is baked into the json used for building the app (at `dxapp.json`) 
-   so setting an instance type is unnecessary. This current default is for a mem3_ssd1_v2_x64 instance (64 CPUs, 512 Gb RAM, 2400Gb storage). This
+   so setting an instance type is unnecessary. This current default is for a mem2_ssd1_v2_x32 instance (32 CPUs, 128 Gb RAM, 1200Gb storage). This
    instance prioritises more RAM over other types of instances, which is required for the [normalisation step](#1-split-multiallelic-variants-and-normalise-all-variants)
    outlined above. **Please note** that this applet is set up for the parallelisation of many files. To run one file, one needs much less 
    memory. If necessary to adjust compute resources, one can provide a flag like `--instance-type mem3_ssd1_v2_x8` to 
    `dx run`.
-   
-#### Batch Running
-
-It is easier to implement batch running manually, rather than use built-in DNANexus batch functionality. In brief, first
-generate a list of all files that need to be run through the process as outlined [above](#inputs):
-
-```shell
-dx ls -l filtered_vcfs/*.bcf | perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "$1\n";}' > bcf_list.txt
-```
-
-Then, simply use the *NIX default split command to generate a set of individual files that can work through all the files
-found above on individual instances:
-
-```shell
-split -a 1 -l 31 bcf_list.txt bcf_list_
-```
-
-A few important notes on the above:
-1. We set the number of files per-list to 31 (using `-l 31`) because our instance has 64 cores and requires 2 cores per 
-   file. This means we should be able to run a total of 32 files at a time, but we need a core to be able to monitor 
-   these processes, thus why we do 31 files.
-2. We CAN set the number of files to greater than 31, but this means other files need to finish processing before others 
-   can start, meaning runtime will be longer than expected.
-3. This will create files named bcf_list_a, bcf_list_b, bcf_list_c, etc.
-
-Then we upload to dna nexus, and generate a set of commands that will then run this applet:
-
-```shell
-dx upload bcf_list_* --destination batch_lists/
-dx ls -l batch_lists/bcf_list_* | \ 
-    perl -ane 'chomp $_; if ($F[6] =~ /^\((\S+)\)$/) {print "dx run mrcepid-filterbcf --priority low --yes --brief --destination filtered_vcfs/ -iinput_vcfs=$1;\n";}' | bash
-```

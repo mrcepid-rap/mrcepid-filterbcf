@@ -6,455 +6,40 @@
 #
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
-from typing import TypedDict
 
-import dxpy
-import subprocess
-import csv
+import sys
 import math
-import os
+from time import sleep
+from os.path import exists
 from concurrent import futures
-from concurrent.futures import ThreadPoolExecutor
 
-
-# This function runs a command on an instance, either with or without calling the docker instance we downloaded
-# By default, commands are not run via Docker, but can be changed by setting is_docker = True
-def run_cmd(cmd: str, is_docker: bool = False) -> None:
-
-    if is_docker:
-        # -v here mounts a local directory on an instance (in this case the home dir) to a directory internal to the
-        # Docker instance named /test/. This allows us to run commands on files stored on the AWS instance within Docker
-        cmd = "docker run -v /home/dnanexus:/test egardner413/mrcepid-burdentesting " + cmd
-
-    # Standard python calling external commands protocol
-    proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    stdout, stderr = proc.communicate()
-
-    # If the command doesn't work, print the error stream and close the AWS instance out with 'dxpy.AppError'
-    if proc.returncode != 0:
-        print("The following cmd failed:")
-        print(cmd)
-        print("STDERROR follows\n")
-        print(stderr.decode('utf-8'))
-        raise dxpy.AppError("Failed to run properly...")
-
-
-# Utility function to delete files no longer needed from the AWS instance to save space
-def purge_file(file: str) -> None:
-
-    cmd = "rm " + file
-    run_cmd(cmd)
-
-
-# This is a helper function to upload a local file and then remove it from the instance.
-# This is different than other applets I have written since CADD takes up so much space.
-# I don't want to have to use a massive instance costing lots of £s!
-def generate_linked_dx_file(file: str) -> dxpy.DXFile:
-
-    linked_file = dxpy.upload_local_file(file)
-    purge_file(file)
-    return linked_file
-
-
-# This is just to compartmentalise the collection of all the resources I need for this task and
-# get them into the right place
-def ingest_resources(vep_cache: dict, loftee_libraries: dict, gnomad_maf_db: dict, gnomad_maf_db_idx: dict,
-                     revel_db: dict, revel_db_idx: dict) -> None:
-
-    # Bring a prepared docker image into our environment so that we can run commands we need:
-    # The Dockerfile to build this image is located at resources/Dockerfile
-    cmd = "docker pull egardner413/mrcepid-burdentesting:latest"
-    run_cmd(cmd)
-
-    # Here we are downloading & unpacking resource files that are required for the annotation engine, they are:
-    # 1. Human reference files – dxIDs are the location of the GRCh38 reference file on AWS London
-    dxpy.download_dxfile('file-Fx2x270Jx0j17zkb3kbBf6q2', "reference.fasta.gz") # This actually downloads the file onto the current instance
-    dxpy.download_dxfile('file-Fx2x21QJ06f47gV73kZPjkQQ', "reference.fasta.fai")
-    cmd = "gunzip reference.fasta.gz" # Better to unzip the reference for most commands for some reason...
-    run_cmd(cmd)
-
-    # 2. vep cache file
-    os.mkdir("vep_caches/")  # This is for legacy reasons to make sure all tests work...
-    dxpy.download_dxfile(dxpy.DXFile(vep_cache).get_id(), 'vep_caches/vep_cache.tar.gz')
-    cmd = "tar -zxf vep_caches/vep_cache.tar.gz -C vep_caches/"
-    run_cmd(cmd)
-    # Write the header for use with bcftools annotate
-    write_annote_header()
-
-    ## 3. loftee reference files:
-    os.mkdir("loftee_files/")
-    dxpy.download_dxfile(dxpy.DXFile(loftee_libraries).get_id(), 'loftee_files/loftee_hg38.tar.gz')
-    cmd = "tar -zxf loftee_files/loftee_hg38.tar.gz -C loftee_files/"
-    run_cmd(cmd)
-
-    ## 4. gnomAD MAF files:
-    os.mkdir("gnomad_files/")
-    dxpy.download_dxfile(dxpy.DXFile(gnomad_maf_db).get_id(), 'gnomad_files/gnomad.tsv.gz')
-    dxpy.download_dxfile(dxpy.DXFile(gnomad_maf_db_idx).get_id(), 'gnomad_files/gnomad.tsv.gz.tbi')
-    # And write a brief gnomad VCF header file so that bcftools knows how to process this data:
-    gnomad_header_writer = open('gnomad_files/gnomad.header.txt', 'w')
-    gnomad_header_writer.writelines('##INFO=<ID=gnomAD_MAF,Number=1,Type=Float,Description="gnomAD Exomes AF">' + "\n")
-    gnomad_header_writer.close()
-
-    ## 5. REVEL files
-    os.mkdir("revel_files/")
-    dxpy.download_dxfile(dxpy.DXFile(revel_db).get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz')
-    dxpy.download_dxfile(dxpy.DXFile(revel_db_idx).get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz.tbi')
-
-
-# Writes a VCF style header that is compatible with bcftools annotate for adding VEP info back into our filtered VCF
-def write_annote_header() -> None:
-    header_writer = open('vep_vcf.header.txt', 'w')
-    header_writer.writelines('##INFO=<ID=MANE,Number=1,Type=String,Description="Canonical MANE Transcript">' + "\n")
-    header_writer.writelines('##INFO=<ID=ENST,Number=1,Type=String,Description="Canonical Ensembl Transcript">' + "\n")
-    header_writer.writelines('##INFO=<ID=ENSG,Number=1,Type=String,Description="Canonical Ensembl Gene">' + "\n")
-    header_writer.writelines('##INFO=<ID=BIOTYPE,Number=1,Type=String,Description="Biotype of ENSG as in VEP">' + "\n")
-    header_writer.writelines('##INFO=<ID=SYMBOL,Number=1,Type=String,Description="HGNC Gene ID">' + "\n")
-    header_writer.writelines('##INFO=<ID=CSQ,Number=1,Type=String,Description="Most severe VEP CSQ for this variant">' + "\n")
-    header_writer.writelines('##INFO=<ID=gnomAD_AF,Number=1,Type=Float,Description="gnomAD v3.0 Exomes AF. If 0,'
-                             ' variant does not exist in gnomAD">' + "\n")
-    header_writer.writelines('##INFO=<ID=REVEL,Number=1,Type=Float,Description="REVEL Score. '
-                             'NaN if not a missense variant.">' + "\n")
-    header_writer.writelines('##INFO=<ID=SIFT,Number=1,Type=String,Description="SIFT Score. '
-                             'NA if not a missense variant.">' + "\n")
-    header_writer.writelines('##INFO=<ID=POLYPHEN,Number=1,Type=String,Description="PolyPhen Score. '
-                             'NA if not a missense variant.">' + "\n")
-    header_writer.writelines('##INFO=<ID=LOFTEE,Number=1,Type=String,Description="LOFTEE annotation if LoF CSQ. '
-                             'NA if not a PTV.">' + "\n")
-    header_writer.writelines('##INFO=<ID=AA,Number=1,Type=String,Description="Amino acid change for this variant.">' + "\n")
-    header_writer.writelines('##INFO=<ID=AApos,Number=1,Type=String,Description="Amino acid location in target protein '
-                             'for change indicated by AA">' + "\n")
-    header_writer.writelines('##INFO=<ID=PARSED_CSQ,Number=1,Type=String,Description="Parsed simplified CSQ">' + "\n")
-    header_writer.writelines('##INFO=<ID=MULTI,Number=1,Type=String,Description="Is variant multiallelic?">' + "\n")
-    header_writer.writelines('##INFO=<ID=INDEL,Number=1,Type=String,Description="Is variant an InDel?">' + "\n")
-    header_writer.writelines('##INFO=<ID=MINOR,Number=1,Type=String,Description="Minor Allele">' + "\n")
-    header_writer.writelines('##INFO=<ID=MAJOR,Number=1,Type=String,Description="Major Allele">' + "\n")
-    header_writer.writelines('##INFO=<ID=MAF,Number=1,Type=Float,Description="Minor Allele Frequency">' + "\n")
-    header_writer.writelines('##INFO=<ID=MAC,Number=1,Type=Float,Description="Minor Allele Count">' + "\n")
-    header_writer.close()
-
-
-# Just a wrapper for BCFtools norm for each bcf file
-def normalise_and_left_correct(vcfprefix: str) -> None:
-
-    # Generate a normalised bcf file for all downstream processing:
-    # -m : splits all multiallelics into separate records
-    # -f : provides a reference file so bcftools can left-normalise and check records against the reference genome
-    cmd = "bcftools norm --threads 2 -Ob -o /test/" + vcfprefix + ".norm.bcf -m - -f /test/reference.fasta /test/" + vcfprefix + ".bcf"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".bcf")
-
-
-# Run the actual filtering on a given bcf
-def do_filtering(vcfprefix: str) -> None:
-
-    # Do genotype level filtering
-    # -S : sets genotypes which fail -i to missing (./.)
-    # -i : filtering expression to decide whether to set to missing or not.
-        # Note this is to INCLUDE pass genotypes, not EXCLUDE fail genotypes
-        # Filtering is split up based on variant type (snp / indel) and genotype due to issues in variant
-        # calling in the UK Biobank WES VCFs
-        # For snps:
-        # - all genotypes are filtered on depth (DP) ≥ 7
-        # - homozygous REF ("RR") are only filtered on genotype quality (GQ) ≥ 20
-        # - heterozygous ("RA") are filtered on GQ ≥ 20 and a ref/alt balance binomial test [binom()] p.value of 1e-3
-        # - homozygous ALT ("AA") are only filtered on DP due to issues with GQ for hom alt alleles being improperly assigned
-        # For InDels:
-        # - All variants regardless of genotype are filtered on DP ≥ 10 and GQ ≥ 20
-    cmd = "bcftools filter -Ob -o /test/" + vcfprefix + ".norm.filtered.bcf --threads 2 -S . " \
-          "-i '(TYPE=\"snp\" & FMT/DP >= 7 & ((FMT/GT=\"RR\" & FMT/GQ >= 20) | " \
-          "(FMT/GT=\"RA\" & FMT/GQ >= 20 & binom(FMT/AD) > 0.001) | " \
-          "(FMT/GT=\"AA\"))) | " \
-          "(TYPE=\"indel\" & FMT/DP >= 10 & FMT/GQ >= 20)' " \
-          "/test/" + vcfprefix + ".norm.bcf"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.bcf") # Purge the original file to save memory
-
-    # Add values for missingness and AC/AF
-    # +fill-tags is a bcftools nonstandard plugin which calculates INFO fields from available genotypes. Note the non-standard '--' at then end which provides
-    # commands to the plugin rather than bcftools itself
-    # INFO fields added are:
-    # F_MISSING: fraction of missing genotypes
-    # AC       : allele count of ALT allele
-    # AF       : allele frequency of ALT allele
-    # AN       : number of possible alleles (accounting for missingness)
-    cmd = "bcftools +fill-tags /test/" + vcfprefix + ".norm.filtered.bcf -Ob -o /test/" + vcfprefix + ".norm.filtered.tagged.bcf -- -t F_MISSING,AC,AF,AN"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.bcf")
-
-    # Set pass/fail filters within the filtered VCF
-    # -s : sets SITES that fail the filtering expression from -i are set to FAIL
-    # -i : only include sites as PASS if they meet these requirements
-        # F_MISSING : Only include sits with less than 50% missing genotypes
-        # AC        : Only include biallelic sites (i.e. no monomorphic)
-    cmd = "bcftools filter -i \'F_MISSING<=0.50 & AC!=0\' -s \'FAIL\' -Ob -o /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf --threads 2 " \
-          "/test/" + vcfprefix + ".norm.filtered.tagged.bcf"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.tagged.bcf")
-
-
-# This function runs VEP and extracts individual annotations using the +split-vep tool in bcftools
-def run_vep(vcfprefix: str) -> None:
-
-    # Generate a file without genotypes for VEP
-    # This should be the ONLY file that is .vcf.gz format as it is required by VEP
-    # -G : strips genotypes
-    cmd = "bcftools view --threads 2 -G -Oz -o /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf"
-    run_cmd(cmd, True)
-
-    # Then run VEP on the resulting file:
-    # Not going to document each individual thing for VEP, but all are available on the VEP webiste
-    cmd = "perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ " \
-          "ensembl-vep/vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ --everything --allele_num " \
-          "-i /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz --format vcf --fasta /test/reference.fasta " \
-          "-o /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz --compress_output bgzip --vcf " \
-          "--dir_plugins ensembl-vep/cache/Plugins/ " \
-          "--plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw " \
-          "--plugin REVEL,/test/revel_files/new_tabbed_revel_grch38.tsv.gz"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz")
-
-    # Add better gnomAD MAF information
-    # bcftools just takes a tabix-formated tsv file (in this case gnomad.tsv.gz) and adds non-coordinate fields as INFO fields
-    # In this case, the gnomad.tsv.gz file has 6 columns, and I ignore column 5
-    # Thus, an INFO field named "gnomAD_MAF" is added to the VEP-annotated VCF
-    # There is also a file (gnomad.header.txt) that contains the INFO field annotation for the vcf header, it is just one line:
-        # ##INFO=<ID=gnomAD_MAF,Number=1,Type=Float,Description="gnomAD Exomes AF">
-    cmd = "bcftools annotate --threads 2 -a /test/gnomad_files/gnomad.tsv.gz -c CHROM,POS,REF,ALT,-,gnomAD_MAF -h /test/gnomad_files/gnomad.header.txt -Ob " \
-          "-o /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz")
-
-    # Then generate an output TSV that we can parse:
-    # The purpose of this is to generate a TSV file of annotations that we care about to parse later (function parse_vep())
-    # +split-vep is a bcftools plugin that iterates through VEP fields provided in a VCF via the CSQ INFO field.
-        # -d :  outputs duplicate transcripts on separate lines. In other words, a gene may have multiple transcripts,
-        # and put each transcript and CSQ on a separate line in the tsv file
-        # -f : CSQ fields that we want to output into the tsv file
-    cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\t%Amino_acids\\t%Protein_position\\n' " \
-          "-o /test/" + vcfprefix + ".vep_table.tsv /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf")
-
-
-# Just a class to ensure typing hint compatibility when defining consequence scores
-class ConsequenceSeverity(TypedDict):
-    score: int
-    type: str
-
-
-# Decide how "severe" a CSQ is for a given annotation record
-def define_score(csqs: str) -> ConsequenceSeverity:
-
-    csqs_split = csqs.split('&')
-
-    # This is a Eugene-decided level of severity partially decided based on VEP severity score.
-    # This should contain all possible CSQ annotations for a variant other than those reserved
-    # for large structural variants
-    vep_consequences = {'stop_gained': {'score': 1, 'type': 'PTV'},
-                        'frameshift_variant': {'score': 2, 'type': 'PTV'},
-                        'splice_acceptor_variant': {'score': 3, 'type': 'PTV'},
-                        'splice_donor_variant': {'score': 4, 'type': 'PTV'},
-                        'stop_lost': {'score': 5, 'type': 'STOP_LOST'},
-                        'start_lost': {'score': 6, 'type': 'START_LOST'},
-                        'inframe_insertion': {'score': 7, 'type': 'INFRAME'},
-                        'inframe_deletion': {'score': 8, 'type': 'INFRAME'},
-                        'missense_variant': {'score': 9, 'type': 'MISSENSE'},
-                        'protein_altering_variant': {'score': 10, 'type': 'INFRAME'},
-                        'splice_region_variant': {'score': 11, 'type': 'NONCODING'},
-                        'incomplete_terminal_codon_variant': {'score': 12, 'type': 'INFRAME'},
-                        'start_retained_variant': {'score': 13, 'type': 'SYN'},
-                        'stop_retained_variant': {'score': 14, 'type': 'SYN'},
-                        'synonymous_variant': {'score': 15, 'type': 'SYN'},
-                        '5_prime_UTR_variant': {'score': 16, 'type': 'UTR'},
-                        '3_prime_UTR_variant': {'score': 17, 'type': 'UTR'},
-                        'intron_variant': {'score': 18, 'type': 'INTRONIC'},
-                        'intergenic_variant': {'score': 19, 'type': 'INTERGENIC'},
-                        'upstream_gene_variant': {'score': 20, 'type': 'INTERGENIC'},
-                        'downstream_gene_variant': {'score': 21, 'type': 'INTERGENIC'},
-                        'no_score': {'score': 22, 'type': 'ERROR'}}
-
-    ret_csq = vep_consequences['no_score']
-    for c in csqs_split:
-        if c in vep_consequences:
-            if vep_consequences[c]['score'] < ret_csq['score']:
-                ret_csq = vep_consequences[c]
-
-    return ret_csq
-
-
-# Prepares a record for final printing by adding some additional pieces of information and
-# finalising the names of some columns for easy printing.
-def final_process_record(rec: dict, severity: ConsequenceSeverity) -> dict:
-
-    # Has to have a "#" to be compatible with VCF I/O
-    rec['#CHROM'] = rec['CHROM']
-
-    # Rename some columns for printing purposes
-    rec['parsed_csq'] = severity['type']
-
-    # Records who do not have equal REF/ALT length are assigned as InDels
-    if len(rec['REF']) != len(rec['ALT']):
-        rec['is_indel'] = True
-    else:
-        rec['is_indel'] = False
-
-    # By UKBB convention, only variants that are multiallelic have a ";" in the name
-    if ';' in rec['ID']:
-        rec['is_multiallelic'] = True
-    else:
-        rec['is_multiallelic'] = False
-
-    # This corrects an issue with sites with 100% missingness that BCFtools doesn't handle correctly
-    if rec['AF'] == '.':
-        rec['AF'] = 0
-        rec['FILTER'] = 'FAIL'
-    else:
-        rec['AF'] = float(rec['AF'])
-
-    # Set sensible defaults for a variety of fields:
-    # "gnomad_maf", "REVEL" "SIFT", "PolyPhen", "LoF"
-    rec['gnomad_maf'] = rec['gnomad_maf'] if rec['gnomad_maf'] != '.' else '0' # Sites w/o gnomAD don't exist in gnomAD so a MAF of 0 seems appropriate
-    rec['REVEL'] = rec['REVEL'] if rec['REVEL'] != '.' else 'NaN' # NaN is default VCF spec for missing floats
-    rec['SIFT'] = rec['SIFT'] if rec['SIFT'] != '.' else 'NA' # NA is default VCF spec for missing strings
-    rec['PolyPhen'] = rec['PolyPhen'] if rec['PolyPhen'] != '.' else 'NA' # NA is default VCF spec for missing strings
-    rec['LoF'] = rec['LoF'] if rec['LoF'] != '.' else 'NA' # NA is default VCF spec for missing strings
-
-    # Setting additional tags requested by GWAS-y people
-    if float(rec['AF']) < 0.5:
-        rec['minor_allele'] = rec['ALT']
-        rec['major_allele'] = rec['REF']
-        rec['MAF'] = '%s' % rec['AF']
-        rec['MAC'] = '%s' % rec['AC']
-    else:
-        rec['minor_allele'] = rec['REF']
-        rec['major_allele'] = rec['ALT']
-        rec['MAF'] = '%s' % (1 - float(rec['AF']))
-        rec['MAC'] = '%s' % (int(rec['AN']) - int(rec['AC']))
-
-    return rec
-
-
-# This function parses VEP output for most severe CSQ for each variant.
-# See individual comments in this code to understand how that is done.
-def parse_vep(vcfprefix: str) -> None:
-
-    # These are all possible fields from the vep table that we generated in run_vep()
-    # And then read it in as a csv.DictReader()
-    csv_reader_header = ("CHROM", "POS", "REF", "ALT", "ID", "FILTER", "AF", "prop_missing", "AN", "AC",
-                         "mane_transcript", "ENST_ID", "ENSG_ID", "biotype", "is_canonical", "symbol", "csq",
-                         "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF", "AA", "AApos")
-    vep_reader = csv.DictReader(open(vcfprefix + '.vep_table.tsv', 'r', newline = '\n'), delimiter="\t",
-                                fieldnames=csv_reader_header, quoting=csv.QUOTE_NONE)
-
-    # Next, open a file that will contain (in tabix format tsv) the info we want to add back to the vcf
-    # And these are all possible output fields that we want
-    annote_writer_header = ("#CHROM", "POS", "REF", "ALT", "mane_transcript", "ENST_ID", "ENSG_ID", "biotype", # OG Fields
-                            "symbol", "csq", "gnomad_maf", "REVEL", "SIFT", "PolyPhen", "LoF", "AA", "AApos", # OG Fields
-                            "parsed_csq", "is_multiallelic", "is_indel", "minor_allele", "major_allele", "MAF", "MAC") # New Fields
-
-    # And open the csv DictWriter to put annotations into
-    annote_file = open(vcfprefix + '.vep_table.annote.tsv', 'w')
-    annote_writer = csv.DictWriter(annote_file, delimiter="\t", fieldnames=annote_writer_header, extrasaction='ignore')
-
-    # Now we need to iterate through the .tsv file that we made
-    # A single variant can be spread across multiple rows as it can be annotated for multiple transcripts in the same gene
-    # The annotations ARE always one after another (all entries for one variant are sequential), so we don't have to
-    # worry about the order of the file.
-    # But we do have to collect multiple entries for one variant, and then decide which one is the most "important". So we:
-    # 1. Iterate through some records until we find a record that is NOT the same ref/alt
-    # 2. Decide if the severity of the current record is "worse" than the currently held_rec
-    # 3. Write the record (function: final_process_record())
-    # 4. Repeat steps 1 - 3 for the next record until we reach the end of the file
-    held_rec_name = None
-    held_rec = None
-    held_severity_score = None
-
-    # Iterate through records (step 1)
-    for rec in vep_reader:
-
-        # Set a unique record ID
-        current_rec_name = '%s_%s_%s_%s' % (rec['CHROM'], rec['POS'], rec['REF'], rec['ALT'])
-
-        if current_rec_name != held_rec_name: # If ID is not the same, write currently held record and reset (steps 3 - 4)
-            if (held_rec_name != None): # Obviously, don't print if going through the first rec since there is no stored INFO yet
-                # Write the record with the most severe consequence (step 3)
-                held_rec = final_process_record(held_rec, held_severity_score)
-                annote_writer.writerow(held_rec)
-
-            # Reset to a new record (step 4)
-            held_rec_name = current_rec_name
-            held_rec = rec # Make sure at least one record makes it through
-            # This function decides how "severe" a given CSQ annotation for a record is. See the function for more details
-            held_severity_score = define_score(held_rec['csq'])
-        else:
-            # Calculate severity of this record
-            current_severity_score = define_score(rec['csq'])
-
-            # check to see if we should prioritise the new record based on the following ordered criteria (step 2):
-            # Below are named in DECREASING selection importance
-            # 1. protein_coding transcript
-            # 2. MANE Transcript
-            # 3. VEP Canonical Transcript
-            # 4. CSQ Severity
-            # All "else" statements are when two records have identical annotations for the given category above
-            if rec['biotype'] == 'protein_coding' and held_rec['biotype'] != 'protein_coding':
-                held_rec = rec
-                held_severity_score = define_score(held_rec['csq'])
-            elif rec['biotype'] != 'protein_coding' and held_rec['biotype'] == 'protein_coding':
-                held_rec = held_rec
-            else:
-                if (rec['mane_transcript'] != '.' and current_severity_score['score'] <= 18) and held_rec['mane_transcript'] == '.':
-                    held_rec = rec
-                    held_severity_score = define_score(held_rec['csq'])
-                elif rec['mane_transcript'] == '.' and (held_rec['mane_transcript'] != '.' and held_severity_score['score'] <= 18):
-                    # This doesn't actually do anything, just to keep things obvious / Python happy
-                    held_rec = held_rec
-                else:
-                    if rec['is_canonical'] == 'YES' and held_rec['is_canonical'] == '.':
-                        held_rec = rec
-                        held_severity_score = define_score(held_rec['csq'])
-                    elif rec['is_canonical'] == '.' and held_rec['is_canonical'] == 'YES':
-                        # This doesn't actually do anything, just to keep things obvious / Python happy
-                        held_rec = held_rec
-                    else:
-                        if current_severity_score['score'] < held_severity_score['score']:
-                            held_rec = rec
-                            held_severity_score = define_score(held_rec['csq'])
-
-    # And print the last record since it cannot be compared to an old record above:
-    held_rec = final_process_record(held_rec, held_severity_score)
-    annote_writer.writerow(held_rec)
-
-    # This flushes all data & closes the output since this is not done by default in csv.DictWriter
-    annote_file.close()
-
-    # bgzip/tabix the output(s) to save space on DNAnexus / allow postprocessing
-    cmd = "bgzip /test/" + vcfprefix + ".vep_table.annote.tsv"
-    run_cmd(cmd, True)
-    cmd = "tabix -p vcf /test/" + vcfprefix + ".vep_table.annote.tsv.gz"
-    run_cmd(cmd, True)
-
-
-# This function simply runs bcftools annotate to add VEP information back to our QCd VCF
-def annotate_vcf_with_vep(vcfprefix: str) -> None:
-
-    # This is similar to how BCFtools annotate was run above to add gnomAD MAF but for A LOT more fields that we got via VEP
-    cmd = "bcftools annotate --threads 2 -a /test/" + vcfprefix + ".vep_table.annote.tsv.gz -c " \
-          "CHROM,POS,REF,ALT,MANE,ENST,ENSG,BIOTYPE,SYMBOL,CSQ,gnomAD_AF,REVEL,SIFT,POLYPHEN,LOFTEE,AA,AApos,PARSED_CSQ,MULTI,INDEL,MINOR,MAJOR,MAF,MAC " \
-          "-h /test/vep_vcf.header.txt -Ob -o /test/" + vcfprefix + ".filtered_annotated.bcf /test/" + vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf"
-    run_cmd(cmd, True)
-    purge_file(vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf")
+# We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
+sys.path.append('/')
+sys.path.append('/filterbcf/')
+
+from filterbcf.ingest_data import *
+from filterbcf.vcf_filter.vcf_filter import *
+from filterbcf.vcf_annotate.vcf_annotate import *
+
+
+class ProcessedReturn(TypedDict):
+    chrom: str
+    start: int
+    end: int
+    vcf_prefix: dxpy.DXFile
+    output_bcf: dxpy.DXFile
+    output_bcf_idx: dxpy.DXFile
+    output_vep: dxpy.DXFile
+    output_vep_idx: dxpy.DXFile
+    output_per_sample: dxpy.DXFile
 
 
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
-def process_vcf(vcf: str) -> dxpy.DXFile:
+def process_vcf(vcf: str) -> ProcessedReturn:
 
     # Create a DXFile instance of the given file:
-    vcf = dxpy.DXFile(vcf.rstrip())
-
-    print("Processing bcf: " + vcf.describe()['name'])
+    vcf = dxpy.DXFile(vcf)
 
     # Set a prefix name for all files so that we can output a standard-named file:
     vcfprefix = vcf.describe()['name'].split(".bcf")[0]
@@ -462,73 +47,97 @@ def process_vcf(vcf: str) -> dxpy.DXFile:
     # Download the VCF file chunk to the instance
     dxpy.download_dxfile(vcf.get_id(), vcfprefix + ".bcf")
 
-    # Normalise and left correct any split InDels
-    normalise_and_left_correct(vcfprefix)
+    # 1. Do normalisation and filtering
+    print("Filtering bcf: " + vcf.describe()['name'])
+    VCFFilter(vcfprefix)
 
-    # Now the actual work. We are doing two separate things with two separate VCF files:
-    # 1. Filtering GENOTYPES to get a final list of sites and pass genotypes
-    do_filtering(vcfprefix)
+    # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
+    # We know that when the original .tar.gz files are gone, that it is safe as deleting those files is the final step
+    # of the download process.
+    vep_tar = 'vep_caches/vep_cache.tar.gz'
+    cadd_tar = 'cadd_files/annotationsGRCh38_v1.6.tar.gz'
+    precomputed_index = 'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi'
+    while (exists(vep_tar) or exists(cadd_tar)) and exists(precomputed_index) is False:
+        sleep(5)
 
-    # 2. Adding annotations from VEP
-    run_vep(vcfprefix)
-
-    # 3. Generating merged/final files:
-    # This function parses the information from the raw VEP run (via run_vep()) and adds it to our filtered vcf
-    parse_vep(vcfprefix)
-
-    # 4. Annotate the final, filtered VCF with our VEP fields to make it easy to go back and generate files for association testing
-    annotate_vcf_with_vep(vcfprefix)
-
-    # Set output
-    # The first two files are the actual product of this entire piece of code and the most important.
-    # The second two are simple stats that we can use to make sure everything looks OK
-    output_vcf = generate_linked_dx_file(vcfprefix + ".filtered_annotated.bcf")
+    # 2. Do annotation
+    print("Annotating bcf: " + vcf.describe()['name'])
+    vcf_annotater = VCFAnnotate(vcfprefix)
 
     print("Finished bcf: " + vcf.describe()['name'])
 
-    return output_vcf
+    return {'chrom': vcf_annotater.chunk_chrom,
+            'start': vcf_annotater.chunk_start,
+            'end': vcf_annotater.chunk_end,
+            'vcf_prefix': vcfprefix,
+            'output_bcf': vcf_annotater.finalbcf,
+            'output_bcf_idx': vcf_annotater.finalbcf_index,
+            'output_vep': vcf_annotater.finalvep,
+            'output_vep_idx': vcf_annotater.finalvep_index,
+            'output_per_sample': vcf_annotater.output_per_sample}
 
 
 @dxpy.entry_point('main')
-def main(input_vcfs, vep_cache, loftee_libraries, gnomad_maf_db, gnomad_maf_db_idx, revel_db, revel_db_idx):
-
-    # Get threads available to this instance
-    threads = os.cpu_count()
-    print('Number of threads available: %i' % threads)
-
-    # Separate function to acquire necessary resource files
-    ingest_resources(vep_cache, loftee_libraries, gnomad_maf_db, gnomad_maf_db_idx, revel_db, revel_db_idx)
-
-    # Write a single VCF header file for later:
-    write_annote_header()
-
-    # Now build a thread worker that contains as many threads, divided by 4 that have been requested
-    # Loop through each VCF and do CADD annotation
-    input_vcfs = dxpy.DXFile(input_vcfs)
-    dxpy.download_dxfile(input_vcfs.get_id(), "vcf_list.txt") # Actually download the file
-    input_vcf_reader = open("vcf_list.txt", 'r')
+def main(input_vcfs, coordinates_name, human_reference, human_reference_index, vep_cache, loftee_libraries,
+         gnomad_maf_db, revel_db,
+         cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels):
 
     # Now build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
-    # instance takes 2 threads and 1 thread for monitoring
-    available_workers = math.floor((threads - 1) / 2)
+    # 1 thread for monitoring threads
+    # 2 threads for downloading (1 each for CADD and VEP)
+    # 2 threads for each BCF
+    available_workers = math.floor((get_thread_number() - 1) / 2)
     executor = ThreadPoolExecutor(max_workers=available_workers)
+
+    # Separate function to acquire necessary resource files
+    ingested_data = IngestData(executor, input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
+                               gnomad_maf_db, revel_db,
+                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels)
 
     # And launch the requested threads
     future_pool = []
-    for input_vcf in input_vcf_reader:
-        future_pool.append(executor.submit(process_vcf, vcf = input_vcf))
-
-    input_vcf_reader.close()
+    for input_vcf in ingested_data.input_vcfs:
+        future_pool.append(executor.submit(process_vcf, vcf=input_vcf))
     print("All threads submitted...")
 
+    # And add the resulting futures to relevant output arrays / file
+    output_bcfs = []
+    output_bcf_idxs = []
+    output_veps = []
+    output_vep_idxs = []
+    output_per_samples = []
+
+    # This file contains information about the 'chunks' that have been processed. It DOES NOT have a header to
+    # make it easier to concatenate coordinate files from multiple runs. The columns are as follows:
+    # [0] #chrom
+    # [1] start
+    # [2] end
+    # [3] chunk_prefix
+    # [4] bcf_dxpy
+    # [5] vep_dxpy
+    coordinate_writer = open(coordinates_name, 'w')
+
     # And gather the resulting futures
-    result_pool = []
     for future in futures.as_completed(future_pool):
         try:
-            result_pool.append(future.result())
+            result = future.result()
+            output_bcfs.append(result['output_bcf'])
+            output_bcf_idxs.append(result['output_bcf_idx'])
+            output_veps.append(result['output_vep'])
+            output_vep_idxs.append(result['output_vep_idx'])
+            output_per_samples.append(result['output_per_sample'])
+            coordinate_writer.write('%s\t%i\t%i\t%s\t%s\t%s\n' % (result['chrom'],
+                                                                  result['start'],
+                                                                  result['end'],
+                                                                  result['vcf_prefix'],
+                                                                  result['output_bcf'].describe()['id'],
+                                                                  result['output_vep'].describe()['id']))
         except Exception as err:
             print("A thread failed...")
+            traceback.format_exc()
             print(Exception, err)
+
+    coordinate_writer.close()
 
     print("All threads completed...")
 
@@ -536,7 +145,12 @@ def main(input_vcfs, vep_cache, loftee_libraries, gnomad_maf_db, gnomad_maf_db_i
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
     # (the subdirectory can be controlled on the command-line by adding a flag to `dx run` like: --destination test/)
-    output = {"output_vcfs": [dxpy.dxlink(result) for result in result_pool]}
+    output = {"output_bcfs": [dxpy.dxlink(item) for item in output_bcfs],
+              "output_bcf_idxs": [dxpy.dxlink(item) for item in output_bcf_idxs],
+              "output_veps": [dxpy.dxlink(item) for item in output_veps],
+              "output_vep_idxs": [dxpy.dxlink(item) for item in output_vep_idxs],
+              "output_per_samples": [dxpy.dxlink(item) for item in output_per_samples],
+              "coordinates_file": dxpy.dxlink(dxpy.upload_local_file(coordinates_name))}
 
     # This returns all the information about your exit files to the work managing your job via DNANexus:
     return output
