@@ -1,7 +1,9 @@
 import csv
 
 from typing import TypedDict, Tuple
-from ..filterbcf_resources import *
+from pathlib import Path
+
+from general_utilities.association_resources import run_cmd, generate_linked_dx_file
 
 
 class VCFAnnotate:
@@ -153,17 +155,17 @@ class VCFAnnotate:
         cmd = "bcftools view --threads 2 -G -Oz " \
               "-o /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz /test/" + \
               self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # Generate a sites file that is in the correct format for CADD from the above
         cmd = "bcftools query -f '%CHROM\\t%POS\\t%ID\\t%REF\\t%ALT\\n' " \
               "-o /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.cadd.vcf /test/" + \
               self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # CADD doesn't like the 'chr' prefix..., so remove it!
         cmd = "sed -i \'s_chr__\' " + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.cadd.vcf"
-        run_cmd(cmd)
+        run_cmd(cmd, is_docker=False)
 
     def _get_bcf_information(self) -> Tuple[str, int, int]:
 
@@ -192,8 +194,8 @@ class VCFAnnotate:
               "--dir_plugins ensembl-vep/cache/Plugins/ " \
               "--plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw " \
               "--plugin REVEL,/test/revel_files/new_tabbed_revel_grch38.tsv.gz"
-        run_cmd(cmd, True)
-        purge_file(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz")
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        Path(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz").unlink()
 
     # Do gnomAD annotation
     def _add_gnomad_annotation(self):
@@ -207,8 +209,8 @@ class VCFAnnotate:
               "-h /test/gnomad_files/gnomad.header.txt " \
               "-o /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf /test/" + \
               self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz"
-        run_cmd(cmd, True)
-        purge_file(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz")
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        Path(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz").unlink()
 
     # Do CADD annotation
     def _add_cadd_annotation(self):
@@ -217,27 +219,30 @@ class VCFAnnotate:
         cmd = "CADD-scripts/CADD.sh -c 2 -g GRCh38 " \
               "-o /test/" + self.vcfprefix + ".cadd.tsv.gz /test/" + \
               self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.cadd.vcf"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True,
+                docker_image='egardner413/mrcepid-burdentesting',
+                docker_mounts=['/home/dnanexus/cadd_files/:/CADD-scripts/data/annotations/',
+                               '/home/dnanexus/cadd_precomputed/:/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/'])
 
         # Add chr back so BCFtools can understand for reannotation and then bgzip and tabix index
         cmd = "zcat " + self.vcfprefix + ".cadd.tsv.gz | tail -n+3 | sed \'s_^_chr_\' > " + self.vcfprefix + ".cadd.chr.tsv"
-        run_cmd(cmd)
+        run_cmd(cmd, is_docker=False)
         cmd = "bgzip /test/" + self.vcfprefix + ".cadd.chr.tsv"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
         cmd = "tabix -p vcf /test/" + self.vcfprefix + ".cadd.chr.tsv.gz"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # Now annotate the gnomAD VCF with CADD scores:
         cmd = "bcftools annotate --threads 2 -c CHROM,POS,REF,ALT,-,CADD -h /test/cadd.header.txt -Ob " \
               "-a /test/" + self.vcfprefix + ".cadd.chr.tsv.gz " + \
               "-o /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.cadd.bcf " + \
               "/test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # Remove CADD annotation files to save space
-        purge_file(self.vcfprefix + ".cadd.tsv.gz")
-        purge_file(self.vcfprefix + ".cadd.chr.tsv.gz")
-        purge_file(self.vcfprefix + ".cadd.chr.tsv.gz.tbi")
+        Path(self.vcfprefix + ".cadd.tsv.gz").unlink()
+        Path(self.vcfprefix + ".cadd.chr.tsv.gz").unlink()
+        Path(self.vcfprefix + ".cadd.chr.tsv.gz.tbi").unlink()
 
     # This function extracts individual annotations using the +split-vep tool in bcftools
     def _generate_annotations_tsv(self):
@@ -251,8 +256,8 @@ class VCFAnnotate:
         cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%CADD\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\t%Amino_acids\\t%Protein_position\\n' " \
               "-o /test/" + self.vcfprefix + ".vep_table.tsv " + \
               "/test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.cadd.bcf"
-        run_cmd(cmd, True)
-        purge_file(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf")
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        Path(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.bcf").unlink()
 
     # This function parses VEP output for most severe CSQ for each variant.
     # See individual comments in this code to understand how that is done.
@@ -350,9 +355,9 @@ class VCFAnnotate:
 
         # bgzip/tabix the output(s) to save space on DNAnexus / allow postprocessing
         cmd = "bgzip /test/" + self.vcfprefix + ".vep_table.annote.tsv"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
         cmd = "tabix -p vcf /test/" + self.vcfprefix + ".vep_table.annote.tsv.gz"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
     # This function simply runs bcftools annotate to add VEP information back to our QCd VCF
     def _annotate_vcf_with_vep(self) -> None:
@@ -361,12 +366,12 @@ class VCFAnnotate:
         cmd = "bcftools annotate --threads 2 -a /test/" + self.vcfprefix + ".vep_table.annote.tsv.gz -c " \
               "CHROM,POS,REF,ALT,MANE,ENST,ENSG,BIOTYPE,SYMBOL,CSQ,gnomAD_AF,CADD,REVEL,SIFT,POLYPHEN,LOFTEE,AA,AApos,PARSED_CSQ,MULTI,INDEL,MINOR,MAJOR,MAF,MAC " \
               "-h /test/vep_vcf.header.txt -Ob -o /test/" + self.vcfprefix + ".filtered_annotated.bcf /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf"
-        run_cmd(cmd, True)
-        purge_file(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf")
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
+        Path(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.bcf").unlink()
 
         # Index this file
         cmd = "bcftools index /test/" + self.vcfprefix + ".filtered_annotated.bcf"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # Generate a final .tsv of annotations:
         cmd = 'bcftools query -f ' \
@@ -374,13 +379,13 @@ class VCFAnnotate:
               '%SYMBOL\\t%CSQ\\t%gnomAD_AF\\t%CADD\\t%REVEL\\t%SIFT\\t%POLYPHEN\\t%LOFTEE\\t%AA\\t%AApos\\t%PARSED_CSQ\\t%MULTI\\t%INDEL\\t%MINOR\\t' \
               '%MAJOR\\t%MAF\\t%MAC\\n" -o /test/' + self.vcfprefix + '.vep.tsv ' + \
               '/test/' + self.vcfprefix + '.filtered_annotated.bcf'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
         # And bgzip and tabix this file
         cmd = "bgzip /test/" + self.vcfprefix + ".vep.tsv"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
         cmd = "tabix -p vcf /test/" + self.vcfprefix + ".vep.tsv.gz"
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 
     # Just generates per-sample QC information
     def _generate_qc_file(self):
@@ -389,5 +394,5 @@ class VCFAnnotate:
               '-f "[%SAMPLE\\t%PARSED_CSQ\\t%AF\\t%GT\\n]" ' \
               '-o /test/' + self.vcfprefix + '.per_indv.tsv ' + \
               '/test/' + self.vcfprefix + '.filtered_annotated.bcf'
-        run_cmd(cmd, True)
+        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
 

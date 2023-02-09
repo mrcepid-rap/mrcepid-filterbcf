@@ -1,14 +1,15 @@
 import os
-from concurrent.futures import ThreadPoolExecutor
-
 import dxpy
 
-from filterbcf_resources import *
+from pathlib import Path
+
+from general_utilities.association_resources import run_cmd
+from general_utilities.thread_utility.thread_utility import ThreadUtility
 
 
 class IngestData:
 
-    def __init__(self, executor: ThreadPoolExecutor, input_vcfs: dict, human_reference: dict, human_reference_index: dict, vep_cache: dict,
+    def __init__(self, input_vcfs: dict, human_reference: dict, human_reference_index: dict, vep_cache: dict,
                  loftee_libraries: dict, gnomad_maf_db: dict, revel_db: dict,
                  cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict):
 
@@ -25,9 +26,13 @@ class IngestData:
         # These two downloads are submitted to a ThreadPoolExecutor so that they download in the background while
         # we perform initial filtering. The monitoring of these threads is handled by the parent class
         # (unsure if good programming practice or not...?)
-        executor.submit(self._ingest_vep_cache, vep_cache)
-        executor.submit(self._ingest_cadd_files, cadd_annotations)
-        executor.submit(self._ingest_precomputed_cadd_files, precomputed_cadd_snvs, precomputed_cadd_indels)
+        thread_utility = ThreadUtility(thread_factor=2, error_message='A data ingest thread failed...', incrementor=1)
+        thread_utility.launch_job(self._ingest_vep_cache, vep_cache=vep_cache)
+        thread_utility.launch_job(self._ingest_cadd_files, cadd_annotations=cadd_annotations)
+        thread_utility.launch_job(self._ingest_precomputed_cadd_files,
+                                  precomputed_cadd_snvs=precomputed_cadd_snvs,
+                                  precomputed_cadd_indels=precomputed_cadd_indels)
+        thread_utility.collect_futures()
 
     def _set_vcf_list(self, input_vcfs):
 
@@ -65,15 +70,15 @@ class IngestData:
     @staticmethod
     def _ingest_docker_file() -> None:
         cmd = "docker pull egardner413/mrcepid-burdentesting:latest"
-        run_cmd(cmd)
+        run_cmd(cmd, is_docker=False)
 
     # Human reference files – default dxIDs are the location of the GRCh38 reference file on AWS London
     @staticmethod
     def _ingest_human_reference(human_reference: dict, human_reference_index: dict) -> None:
-        dxpy.download_dxfile(dxpy.DXFile(human_reference).get_id(), "reference.fasta.gz")  # This actually downloads the file onto the current instance
+        dxpy.download_dxfile(dxpy.DXFile(human_reference).get_id(), "reference.fasta.gz")
         dxpy.download_dxfile(dxpy.DXFile(human_reference_index).get_id(), "reference.fasta.fai")
         cmd = "gunzip reference.fasta.gz"  # Better to unzip the reference for most commands for some reason...
-        run_cmd(cmd)
+        run_cmd(cmd, is_docker=False)
 
     # loftee reference files:
     @staticmethod
@@ -82,8 +87,8 @@ class IngestData:
         os.mkdir("loftee_files/")
         dxpy.download_dxfile(dxpy.DXFile(loftee_libraries), 'loftee_files/loftee_hg38.tar.gz')
         cmd = "tar -zxf loftee_files/loftee_hg38.tar.gz -C loftee_files/"
-        run_cmd(cmd)
-        purge_file('loftee_files/loftee_hg38.tar.gz')
+        run_cmd(cmd, is_docker=False)
+        Path('loftee_files/loftee_hg38.tar.gz').unlink()
 
     # gnomAD MAF files:
     def _ingest_gnomad_files(self, gnomad_maf_db: dict) -> None:
@@ -111,13 +116,13 @@ class IngestData:
         dxpy.download_dxfile(dxpy.DXFile(vep_cache).get_id(), 'vep_caches/vep_cache.tar.gz')
 
         cmd = "tar -zxf vep_caches/vep_cache.tar.gz -C vep_caches/"
-        run_cmd(cmd)
+        run_cmd(cmd, is_docker=False)
 
         # Write the header for use with bcftools annotate
         self._write_vep_header()
 
         # And purge the large tarball
-        purge_file('vep_caches/vep_cache.tar.gz')
+        Path('vep_caches/vep_cache.tar.gz').unlink()
         print('VEP resources finished downloading and unpacking...')
 
     # CADD reference files – These are the resource files so InDel CADD scores can be calculated from scratch
@@ -128,10 +133,9 @@ class IngestData:
         os.mkdir("cadd_files/")
         dxpy.download_dxfile(dxpy.DXFile(cadd_annotations).get_id(), 'cadd_files/annotationsGRCh38_v1.6.tar.gz')
         cmd = "tar -zxf cadd_files/annotationsGRCh38_v1.6.tar.gz -C cadd_files/"
-        run_cmd(cmd)
-
+        run_cmd(cmd, is_docker=False)
         # And finally remove the large annotations tar ball
-        purge_file('cadd_files/annotationsGRCh38_v1.6.tar.gz')
+        Path('cadd_files/annotationsGRCh38_v1.6.tar.gz').unlink()
         print('CADD resources finished downloading and unpacking...')
 
     def _ingest_precomputed_cadd_files(self, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict):
@@ -159,11 +163,14 @@ class IngestData:
     def _write_vep_header() -> None:
         header_writer = open('vep_vcf.header.txt', 'w')
         header_writer.writelines('##INFO=<ID=MANE,Number=1,Type=String,Description="Canonical MANE Transcript">' + "\n")
-        header_writer.writelines('##INFO=<ID=ENST,Number=1,Type=String,Description="Canonical Ensembl Transcript">' + "\n")
+        header_writer.writelines('##INFO=<ID=ENST,Number=1,Type=String,Description="Canonical Ensembl '
+                                 'Transcript">' + "\n")
         header_writer.writelines('##INFO=<ID=ENSG,Number=1,Type=String,Description="Canonical Ensembl Gene">' + "\n")
-        header_writer.writelines('##INFO=<ID=BIOTYPE,Number=1,Type=String,Description="Biotype of ENSG as in VEP">' + "\n")
+        header_writer.writelines('##INFO=<ID=BIOTYPE,Number=1,Type=String,Description="Biotype of ENSG as in '
+                                 'VEP">' + "\n")
         header_writer.writelines('##INFO=<ID=SYMBOL,Number=1,Type=String,Description="HGNC Gene ID">' + "\n")
-        header_writer.writelines('##INFO=<ID=CSQ,Number=1,Type=String,Description="Most severe VEP CSQ for this variant">' + "\n")
+        header_writer.writelines('##INFO=<ID=CSQ,Number=1,Type=String,Description="Most severe VEP CSQ for this '
+                                 'variant">' + "\n")
         header_writer.writelines('##INFO=<ID=gnomAD_AF,Number=1,Type=Float,Description="gnomAD v3.0 Exomes AF. If 0,'
                                  ' variant does not exist in gnomAD">' + "\n")
         header_writer.writelines('##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">' + "\n")
@@ -175,10 +182,12 @@ class IngestData:
                                  'NA if not a missense variant.">' + "\n")
         header_writer.writelines('##INFO=<ID=LOFTEE,Number=1,Type=String,Description="LOFTEE annotation if LoF CSQ. '
                                  'NA if not a PTV.">' + "\n")
-        header_writer.writelines('##INFO=<ID=AA,Number=1,Type=String,Description="Amino acid change for this variant.">' + "\n")
-        header_writer.writelines('##INFO=<ID=AApos,Number=1,Type=String,Description="Amino acid location in target protein '
-                                 'for change indicated by AA">' + "\n")
-        header_writer.writelines('##INFO=<ID=PARSED_CSQ,Number=1,Type=String,Description="Parsed simplified CSQ">' + "\n")
+        header_writer.writelines('##INFO=<ID=AA,Number=1,Type=String,Description="Amino acid change for this '
+                                 'variant.">' + "\n")
+        header_writer.writelines('##INFO=<ID=AApos,Number=1,Type=String,Description="Amino acid location in target '
+                                 'protein for change indicated by AA">' + "\n")
+        header_writer.writelines('##INFO=<ID=PARSED_CSQ,Number=1,Type=String,Description="Parsed simplified '
+                                 'CSQ">' + "\n")
         header_writer.writelines('##INFO=<ID=MULTI,Number=1,Type=String,Description="Is variant multiallelic?">' + "\n")
         header_writer.writelines('##INFO=<ID=INDEL,Number=1,Type=String,Description="Is variant an InDel?">' + "\n")
         header_writer.writelines('##INFO=<ID=MINOR,Number=1,Type=String,Description="Minor Allele">' + "\n")

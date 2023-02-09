@@ -6,20 +6,24 @@
 #
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
-
+import csv
 import sys
-import math
+import dxpy
+
+from pathlib import Path
 from time import sleep
 from os.path import exists
-from concurrent import futures
+from typing import TypedDict
+
+from general_utilities.thread_utility.thread_utility import ThreadUtility
 
 # We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
 sys.path.append('/')
 sys.path.append('/filterbcf/')
 
-from filterbcf.ingest_data import *
-from filterbcf.vcf_filter.vcf_filter import *
-from filterbcf.vcf_annotate.vcf_annotate import *
+from filterbcf.ingest_data import IngestData
+from filterbcf.vcf_filter.vcf_filter import VCFFilter
+from filterbcf.vcf_annotate.vcf_annotate import VCFAnnotate
 
 
 class ProcessedReturn(TypedDict):
@@ -82,22 +86,21 @@ def main(input_vcfs, coordinates_name, human_reference, human_reference_index, v
          gnomad_maf_db, revel_db,
          cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels):
 
+    # Separate function to acquire necessary resource files
+    ingested_data = IngestData(input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
+                               gnomad_maf_db, revel_db,
+                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels)
+
     # Now build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads
     # 2 threads for downloading (1 each for CADD and VEP)
     # 2 threads for each BCF
-    available_workers = math.floor((get_thread_number() - 1) / 2)
-    executor = ThreadPoolExecutor(max_workers=available_workers)
-
-    # Separate function to acquire necessary resource files
-    ingested_data = IngestData(executor, input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
-                               gnomad_maf_db, revel_db,
-                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels)
+    thread_utility = ThreadUtility(thread_factor=2, error_message='A bcffiltering thread failed', incrementor=5)
 
     # And launch the requested threads
-    future_pool = []
     for input_vcf in ingested_data.input_vcfs:
-        future_pool.append(executor.submit(process_vcf, vcf=input_vcf))
+        thread_utility.launch_job(process_vcf,
+                                  vcf=input_vcf)
     print("All threads submitted...")
 
     # And add the resulting futures to relevant output arrays / file
@@ -115,29 +118,27 @@ def main(input_vcfs, coordinates_name, human_reference, human_reference_index, v
     # [3] chunk_prefix
     # [4] bcf_dxpy
     # [5] vep_dxpy
-    coordinate_writer = open(coordinates_name, 'w')
 
-    # And gather the resulting futures
-    for future in futures.as_completed(future_pool):
-        try:
-            result = future.result()
+    with Path(coordinates_name).open('w') as coordinate_writer:
+
+        coordinate_csv = csv.DictWriter(coordinate_writer,
+                                        fieldnames=['chrom', 'start', 'end', 'vcf_prefix', 'output_bcf', 'output_vep'],
+                                        delimiter="\t")
+        # And gather the resulting futures
+        for result in thread_utility:
             output_bcfs.append(result['output_bcf'])
             output_bcf_idxs.append(result['output_bcf_idx'])
             output_veps.append(result['output_vep'])
             output_vep_idxs.append(result['output_vep_idx'])
             output_per_samples.append(result['output_per_sample'])
-            coordinate_writer.write('%s\t%i\t%i\t%s\t%s\t%s\n' % (result['chrom'],
-                                                                  result['start'],
-                                                                  result['end'],
-                                                                  result['vcf_prefix'],
-                                                                  result['output_bcf'].describe()['id'],
-                                                                  result['output_vep'].describe()['id']))
-        except Exception as err:
-            print("A thread failed...")
-            traceback.format_exc()
-            print(Exception, err)
-
-    coordinate_writer.close()
+            writer_dict = {
+                'chrom': result['chrom'],
+                'start': result['start'],
+                'end': result['end'],
+                'vcf_prefix': result['vcf_prefix'],
+                'outout_bcf': result['output_bcf'].describe()['id'],
+                'output_vep': result['output_vep'].describe()['id']}
+            coordinate_csv.writerow(writer_dict)
 
     print("All threads completed...")
 
