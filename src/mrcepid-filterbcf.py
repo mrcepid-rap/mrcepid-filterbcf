@@ -136,7 +136,7 @@ def main(input_vcfs, coordinates_name, human_reference, human_reference_index, v
                 'start': result['start'],
                 'end': result['end'],
                 'vcf_prefix': result['vcf_prefix'],
-                'outout_bcf': result['output_bcf'].describe()['id'],
+                'output_bcf': result['output_bcf'].describe()['id'],
                 'output_vep': result['output_vep'].describe()['id']}
             coordinate_csv.writerow(writer_dict)
 
