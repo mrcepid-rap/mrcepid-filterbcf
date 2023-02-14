@@ -90,19 +90,74 @@ to acquire other resources (e.g. wget). See the referenced Dockerfile for more i
 
 #### Resource Files
 
-This app also makes use of several resource files that provide various annotations for individual variants. These are 
-provided as part of the DNANexus project "MRC - Variant Filtering" (project-G2XK5zjJXk83yZ598Z7BpGPk) in the folder `project_resources/`
-with specific directories listed here:
+This app also makes use of several resource files that provide various annotations for individual variants. To download
+these files, we recommend using the [URL Fetcher App](https://ukbiobank.dnanexus.com/app/url_fetcher) on the DNANexus platform (DNANexus login required). Specific
+instructions for obtaining these files is listed below each bullet point:
 
-* The hg38 human reference genome. These files are available for free on the DNANexus platform.
-    * .fa file: `file-Fx2x270Jx0j17zkb3kbBf6q2`
-    * .fa.fai file: `file-Fx2x21QJ06f47gV73kZPjkQQ`
-* VEP hg38 cache. Available [here](http://ftp.ensembl.org/pub/release-104/variation/indexed_vep_cache/) – `project_resources/vep_caches`
-* Files required for the loftee vep plugin. These files are downloaded from a variety of sources. See [here](https://github.com/konradjk/loftee/tree/grch38) for more details – `project_resources/loftee_files/`
-* gnomADv3 MAF files available from [gnomAD](https://gnomad.broadinstitute.org/downloads). This is a simple tabix indexed file for use with `bcftools annotate`  – `project_resources/gnomad_files/`
-* REVEL tabix indexed files from [REVEL](https://sites.google.com/site/revelgenomics/downloads) for use with the REVEL vep plugin – `project_resources/revel_files/`
-* CADD resource files downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download) – `/project_resources/cadd_files/` 
-* CADD known VEP hg38 cache downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download)- `/project_resources/vep_cadd_files/`
+1. The hg38 human reference genome.
+
+  These files are available for free on the DNANexus platform:
+
+    .fa file: `file-Fx2x270Jx0j17zkb3kbBf6q2`
+    .fa.fai file: `file-Fx2x21QJ06f47gV73kZPjkQQ`
+
+2. VEP hg38 cache for VEP108. **NOTE:** This applet is designed to work with VEP108, errors may arise if the correct version is not used!
+
+       http://ftp.ensembl.org/pub/release-108/variation/indexed_vep_cache/homo_sapiens_vep_108_GRCh38.tar.gz
+
+3. Files required for the loftee vep plugin. These files are downloaded from a variety of sources. See [the LOFTEE documentation](https://github.com/konradjk/loftee/tree/grch38) for more details. The LOFTEE files require a very specific file-structure to be used by this applet. Please follow the directions below carefully:
+
+    ```{commandline}
+    mkdir loftee_hg38/
+    cd loftee_hg38/
+    wget https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/gerp_conservation_scores.homo_sapiens.GRCh38.bw
+    wget https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz
+    wget https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz.fai
+    wget https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/human_ancestor.fa.gz.gzi
+    wget https://personal.broadinstitute.org/konradk/loftee_data/GRCh38/loftee.sql.gz
+    gunzip loftee.sql.gz
+    cd ../
+    tar -czf loftee_hg38.tar.gz loftee_hg38/
+    dx upload loftee_hg38.tar.gz
+    ```
+
+4. gnomAD***v3*** Non-finish European MAF files for **Hg38** generated from [gnomAD](https://gnomad.broadinstitute.org/downloads). This is a simple tabix indexed file for use with `bcftools annotate`. For instructions on generating this file, see below:
+
+    ```{commandline}
+    # You will need to run the following for all chromosomes available, but an example for chromosome 1 is shown below.
+    bcftools query -f '%CHROM\t%POS\t$REF\t%ALT\t%FILTER\t%AF_nfe\n' https://gnomad-public-us-east-1.s3.amazonaws.com/release/3.1.2/vcf/genomes/gnomad.genomes.v3.1.2.sites.chr1.vcf.bgz > chr1.gnomad.tsv
+    
+    # Once all 23 chromosomes have completed, run the following:
+    cat chr*.gnomad.tsv | sort -k 1,1 -k 2,2n > gnomad.tsv
+    bgzip gnomad.tsv
+    tabix -s 1 -b 2 -e 2 gnomad.tsv.gz
+    dx upload gnomad.tsv.gz
+    ```
+
+5. REVEL tabix indexed files from [REVEL](https://sites.google.com/site/revelgenomics/downloads) for use with the REVEL vep plugin:
+
+    ```{commandline}
+    # Download the original REVEL file:
+    wget https://zenodo.org/record/7072866/files/revel-v1.3_all_chromosomes.zip
+   
+    # Process according to instructions here: https://github.com/Ensembl/VEP_plugins/blob/release/109/REVEL.pm
+    unzip revel-v1.3_all_chromosomes.zip
+    cat revel_with_transcript_ids | tr "," "\t" > tabbed_revel.tsv
+    sed '1s/.*/#&/' tabbed_revel.tsv > new_tabbed_revel.tsv
+    bgzip new_tabbed_revel.tsv
+    zcat new_tabbed_revel.tsv.gz | head -n1 > h
+    zgrep -h -v ^#chr new_tabbed_revel.tsv.gz | awk '$3 != "." ' | sort -k1,1 -k3,3n - | cat h - | bgzip -c > new_tabbed_revel_grch38.tsv.gz
+    tabix -f -s 1 -b 3 -e 3 new_tabbed_revel_grch38.tsv.gz
+    dx upload new_tabbed_revel_grch38.tsv.gz
+    ```
+
+6. CADD resource files downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download). **NOTE**: These files are VERY large:
+
+       CADD Annotations: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz
+       Precomputed SNVs: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/whole_genome_SNVs.tsv.gz
+       Precomputed SNVs index: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/whole_genome_SNVs.tsv.gz.tbi
+       Precomputed InDels: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/gnomad.genomes.r3.0.indel.tsv.gz
+       Precomputed InDels index: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/gnomad.genomes.r3.0.indel.tsv.gz.tbi
 
 ## Methodology
 
