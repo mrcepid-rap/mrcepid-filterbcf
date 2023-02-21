@@ -4,7 +4,7 @@ import dxpy
 from pathlib import Path
 
 from general_utilities.association_resources import run_cmd
-from general_utilities.thread_utility.thread_utility import ThreadUtility
+from general_utilities.job_management.thread_utility import ThreadUtility
 
 
 class IngestData:

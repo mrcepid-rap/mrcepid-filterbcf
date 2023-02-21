@@ -15,7 +15,7 @@ from time import sleep
 from os.path import exists
 from typing import TypedDict
 
-from general_utilities.thread_utility.thread_utility import ThreadUtility
+from general_utilities.job_management.thread_utility import ThreadUtility
 
 # We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
 sys.path.append('/')
