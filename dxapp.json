@@ -208,7 +208,8 @@
   "access": {
     "network": [
       "*"
-    ]
+    ],
+    "allProjects": "VIEW"
   },
   "runSpec": {
     "timeoutPolicy": {
