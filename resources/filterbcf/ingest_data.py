@@ -47,12 +47,14 @@ class IngestData:
     # This function will locate an associated tbi/csi index:
     @staticmethod
     def find_index(parent_file: dxpy.DXFile, index_suffix: str) -> dxpy.DXFile:
-        # Pull the corresponding project ID:
-        project_id = dxpy.PROJECT_CONTEXT_ID
 
-        # First set the likely name of the corresponding index:
-        index_folder = parent_file.describe()['folder']
-        index_name = parent_file.describe()['name'] + '.' + index_suffix
+        # Describe the file to get attributes:
+        file_description = parent_file.describe(fields={'folder': True, 'name': True, 'project': True})
+
+        # First set the likely details of the corresponding index:
+        project_id = file_description['project']
+        index_folder = file_description['folder']
+        index_name = file_description['name'] + '.' + index_suffix
 
         # Run a dxpy query.
         # This will fail if no or MULTIPLE indices are found
