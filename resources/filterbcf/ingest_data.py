@@ -3,7 +3,7 @@ import dxpy
 
 from pathlib import Path
 
-from general_utilities.association_resources import run_cmd
+from general_utilities.association_resources import run_cmd, find_index
 from general_utilities.job_management.thread_utility import ThreadUtility
 
 
@@ -44,29 +44,6 @@ class IngestData:
             self.input_vcfs.append(input_vcf.rstrip())
         input_vcf_reader.close()
 
-    # This function will locate an associated tbi/csi index:
-    @staticmethod
-    def find_index(parent_file: dxpy.DXFile, index_suffix: str) -> dxpy.DXFile:
-
-        # Describe the file to get attributes:
-        file_description = parent_file.describe(fields={'folder': True, 'name': True, 'project': True})
-
-        # First set the likely details of the corresponding index:
-        project_id = file_description['project']
-        index_folder = file_description['folder']
-        index_name = file_description['name'] + '.' + index_suffix
-
-        # Run a dxpy query.
-        # This will fail if no or MULTIPLE indices are found
-        index_object = dxpy.find_one_data_object(more_ok=False, classname='file', project=project_id,
-                                                 folder=index_folder,
-                                                 name=index_name, name_mode='exact')
-
-        # Set a dxfile of the index itself:
-        found_index = dxpy.DXFile(dxid=index_object['id'], project=index_object['project'])
-
-        return found_index
-
     # Bring a prepared docker image into our environment so that we can run commands we need:
     # The Dockerfile to build this image is located at resources/Dockerfile
     @staticmethod
@@ -98,7 +75,7 @@ class IngestData:
         os.mkdir("gnomad_files/")
         gnomad_dx_file = dxpy.DXFile(gnomad_maf_db)
         dxpy.download_dxfile(gnomad_dx_file.get_id(), 'gnomad_files/gnomad.tsv.gz')
-        dxpy.download_dxfile(self.find_index(gnomad_dx_file, 'tbi'), 'gnomad_files/gnomad.tsv.gz.tbi')
+        dxpy.download_dxfile(find_index(gnomad_dx_file, 'tbi'), 'gnomad_files/gnomad.tsv.gz.tbi')
 
         self._write_gnomad_header()
 
@@ -108,7 +85,7 @@ class IngestData:
         os.mkdir("revel_files/")
         revel_dx_file = dxpy.DXFile(revel_db)
         dxpy.download_dxfile(revel_dx_file.get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz')
-        dxpy.download_dxfile(self.find_index(revel_dx_file, 'tbi').get_id(),
+        dxpy.download_dxfile(find_index(revel_dx_file, 'tbi').get_id(),
                              'revel_files/new_tabbed_revel_grch38.tsv.gz.tbi')
 
     # VEP cache file
@@ -148,12 +125,12 @@ class IngestData:
         # SNVs...
         cadd_snvs_dx_file = dxpy.DXFile(precomputed_cadd_snvs)
         dxpy.download_dxfile(cadd_snvs_dx_file.get_id(), 'cadd_precomputed/whole_genome_SNVs.tsv.gz')
-        dxpy.download_dxfile(self.find_index(cadd_snvs_dx_file, 'tbi').get_id(),
+        dxpy.download_dxfile(find_index(cadd_snvs_dx_file, 'tbi').get_id(),
                              'cadd_precomputed/whole_genome_SNVs.tsv.gz.tbi')
         # InDels...
         cadd_indels_dx_file = dxpy.DXFile(precomputed_cadd_indels)
         dxpy.download_dxfile(cadd_indels_dx_file.get_id(), 'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz')
-        dxpy.download_dxfile(self.find_index(cadd_indels_dx_file, 'tbi').get_id(),
+        dxpy.download_dxfile(find_index(cadd_indels_dx_file, 'tbi').get_id(),
                              'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi')
 
         # Write a header:
