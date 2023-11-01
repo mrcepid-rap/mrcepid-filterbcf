@@ -226,8 +226,9 @@
       {
         "name": "general_utilities",
         "package_manager": "git",
-        "url": "https://github.com/mrcepid-rap/general_utilities.git",
-        "build_commands": "python3 setup.py install"
+        "url":  "https://github.com/mrcepid-rap/general_utilities.git",
+        "tag": "v1.2.2",
+        "build_commands": "pip3 install ."
       }
     ]
   },
