@@ -7,6 +7,7 @@ https://documentation.dnanexus.com/.
 ### Table of Contents
 
 - [Introduction](#introduction)
+  * [Changelog](#changelog)
   * [Background](#background)
   * [Dependencies](#dependencies)
     + [Docker](#docker)
@@ -41,6 +42,14 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
 **Note:** This README pertains to data included as part of the DNANexus project "MRC - Variant Filtering" (project-G2XK5zjJXk83yZ598Z7BpGPk)
+
+### Changelog
+
+* v1.0.1
+  * Added support for .bcf or .vcf.gz input to this applet
+
+* v1.0.0
+  * Initial numbered release. See git changes for history
 
 ### Background
 
