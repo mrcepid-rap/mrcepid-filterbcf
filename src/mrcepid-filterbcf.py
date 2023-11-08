@@ -15,6 +15,7 @@ from time import sleep
 from os.path import exists
 from typing import TypedDict, Tuple
 
+from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.thread_utility import ThreadUtility
 
 # We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
@@ -78,7 +79,7 @@ def process_vcf(vcf: str) -> ProcessedReturn:
     vcfprefix, vcfsuffix = identify_vcf_format(vcfname)
 
     # Download the VCF file chunk to the instance
-    dxpy.download_dxfile(vcf.get_id(), vcfname)
+    download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID)
 
     # 1. Do normalisation and filtering
     print(f'Filtering bcf: {vcfname}')
