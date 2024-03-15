@@ -2,8 +2,8 @@
   "name": "mrcepid-filterbcf",
   "title": "FilterBCF",
   "summary": "Filter a target BCF according to parameters set by MRC Epidemiology",
-  "dxapi": "1.0.1",
-  "version": "0.0.1",
+  "dxapi": "1.0.0",
+  "version": "1.1.0",
   "inputSpec": [
     {
       "name": "input_vcfs",
@@ -29,7 +29,7 @@
       "name": "human_reference",
       "label": "Human reference genome",
       "class": "file",
-      "optional": true,
+      "optional": false,
       "help": "GRCh38 human reference genome",
       "default": {
         "$dnanexus_link": {
@@ -42,7 +42,7 @@
       "name": "human_reference_index",
       "label": "Human reference genome .fai index",
       "class": "file",
-      "optional": true,
+      "optional": false,
       "help": "GRCh38 human reference genome .fai index",
       "default": {
         "$dnanexus_link": {
@@ -55,92 +55,43 @@
       "name": "vep_cache",
       "label": "VEP cache from ENSEMBL",
       "class": "file",
-      "optional": true,
-      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
-        }
-      }
+      "optional": false,
+      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107"
     },
     {
       "name": "loftee_libraries",
       "label": "Precompiled LOFTEE resources",
       "class": "file",
-      "optional": true,
-      "help": "Pointer to the tar.gz file of loftee databases on DNA nexus",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G4588p0JXk8Jf9y2KG727pB6"
-        }
-      }
-    },
-    {
-      "name": "gnomad_maf_db",
-      "label": "Precompiled gnomAD MAF database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to a precompiled .tsv format file of gnomAD AFs",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45zfxjJXk8Bjjb1531PfZ2G"
-        }
-      }
-    },
-    {
-      "name": "revel_db",
-      "label": "Precompiled REVEL score database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to a precompiled .tsv format file of REVEL scores",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45xxKQJXk8KB6kKKG2ZQ9Zx"
-        }
-      }
+      "optional": false,
+      "help": "Pointer to the tar.gz file of loftee databases on DNA nexus"
     },
     {
       "name": "cadd_annotations",
       "label": "CADD annotations",
       "class": "file",
-      "optional": true,
-      "help": "Pointer to annotations used by CADD to compute variant deleteriousness scores.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44Vjb8JGV7fYJYj35k8j9Yv"
-        }
-      }
+      "optional": false,
+      "help": "Pointer to annotations used by CADD to compute variant deleteriousness scores."
     },
     {
       "name": "precomputed_cadd_snvs",
       "label": "",
       "class": "file",
-      "optional": true,
-      "help": ".tsv.gz file of all possible pre-computed SNVs in the GRCh38 human reference genome.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44X7KjJKBQfYJYj35k8jK45"
-        }
-      }
+      "optional": false,
+      "help": ".tsv.gz file of all possible pre-computed SNVs in the GRCh38 human reference genome."
     },
     {
       "name": "precomputed_cadd_indels",
       "label": "",
       "class": "file",
+      "optional": false,
+      "help": ".tsv.gz file of all gnomAD v3.0 InDels in GRCh38 human reference coordinates."
+    },
+    {
+      "name": "additional_annotations",
+      "label": "",
+      "class": "array:file",
       "optional": true,
-      "help": ".tsv.gz file of all gnomAD v3.0 InDels in GRCh38 human reference coordinates.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44X2b0JXk8Kgyk6GYk8j92p"
-        }
-      }
+      "help": "List of tabix .tsv.gz files with additional annotations to add to the final bcf. See README for format."
     }
   ],
   "outputSpec": [
@@ -227,7 +178,7 @@
         "name": "general_utilities",
         "package_manager": "git",
         "url":  "https://github.com/mrcepid-rap/general_utilities.git",
-        "tag": "v1.2.2",
+        "tag": "test_subjob",
         "build_commands": "pip3 install ."
       }
     ]
