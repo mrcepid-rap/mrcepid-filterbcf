@@ -13,8 +13,9 @@ import dxpy
 from pathlib import Path
 from time import sleep
 from os.path import exists
-from typing import TypedDict
+from typing import TypedDict, Tuple
 
+from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.thread_utility import ThreadUtility
 
 # We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
@@ -30,12 +31,40 @@ class ProcessedReturn(TypedDict):
     chrom: str
     start: int
     end: int
-    vcf_prefix: dxpy.DXFile
+    vcf_prefix: str
     output_bcf: dxpy.DXFile
     output_bcf_idx: dxpy.DXFile
     output_vep: dxpy.DXFile
     output_vep_idx: dxpy.DXFile
     output_per_sample: dxpy.DXFile
+
+
+def identify_vcf_format(vcf_name: str) -> Tuple[str, str]:
+    """Decide which variant data type we are using
+
+    Identifies .bcf or .vcf.gz binary vcf formats and reports the prefix and suffix. Also throws an error if the suffix
+    is not correct. Thus
+
+    test.vcf.gz or test.bcf
+
+    becomes
+
+    test, .vcf.gz or test, .bcf
+
+    :param vcf_name: A vcf file in str format
+    :return: A tuple of vcf_prefix, vcf_suffix
+    """
+
+    if vcf_name.endswith('.vcf.gz'):
+        vcf_prefix = vcf_name[:-7]
+        vcf_suffix = '.vcf.gz'
+    elif vcf_name.endswith('.bcf'):
+        vcf_prefix = vcf_name[:-4]
+        vcf_suffix = '.bcf'
+    else:
+        raise ValueError('VCF does not end with .vcf.gz or .bcf and may indicate formatting issues!')
+
+    return vcf_prefix, vcf_suffix
 
 
 # This is a method that will execute all steps necessary to process one VCF file
@@ -45,15 +74,16 @@ def process_vcf(vcf: str) -> ProcessedReturn:
     # Create a DXFile instance of the given file:
     vcf = dxpy.DXFile(vcf)
 
-    # Set a prefix name for all files so that we can output a standard-named file:
-    vcfprefix = vcf.describe()['name'].split(".bcf")[0]
+    # Get the suffix on the vcf file
+    vcfname = vcf.describe()['name']
+    vcfprefix, vcfsuffix = identify_vcf_format(vcfname)
 
     # Download the VCF file chunk to the instance
-    dxpy.download_dxfile(vcf.get_id(), vcfprefix + ".bcf")
+    download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID)
 
     # 1. Do normalisation and filtering
-    print("Filtering bcf: " + vcf.describe()['name'])
-    VCFFilter(vcfprefix)
+    print(f'Filtering bcf: {vcfname}')
+    VCFFilter(vcfprefix, vcfsuffix)
 
     # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
     # We know that when the original .tar.gz files are gone, that it is safe as deleting those files is the final step
@@ -65,10 +95,10 @@ def process_vcf(vcf: str) -> ProcessedReturn:
         sleep(5)
 
     # 2. Do annotation
-    print("Annotating bcf: " + vcf.describe()['name'])
+    print(f'Annotating bcf: {vcfname}')
     vcf_annotater = VCFAnnotate(vcfprefix)
 
-    print("Finished bcf: " + vcf.describe()['name'])
+    print(f'Finished bcf: {vcfname}')
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,

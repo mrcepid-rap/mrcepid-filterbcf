@@ -5,9 +5,10 @@ from general_utilities.association_resources import run_cmd
 
 class VCFFilter:
 
-    def __init__(self, vcfprefix: str):
+    def __init__(self, vcfprefix: str, vcfsuffix: str):
 
         self.vcfprefix = vcfprefix
+        self.vcfsuffix = vcfsuffix
 
         self._normalise_and_left_correct()
         self._genotype_filter()
@@ -20,9 +21,9 @@ class VCFFilter:
     # -f : provides a reference file so bcftools can left-normalise and check records against the reference genome
     def _normalise_and_left_correct(self) -> None:
         cmd = "bcftools norm --threads 2 -Ob -m - -f /test/reference.fasta " \
-              "-o /test/" + self.vcfprefix + ".norm.bcf /test/" + self.vcfprefix + ".bcf"
+              "-o /test/" + self.vcfprefix + ".norm.bcf /test/" + self.vcfprefix + self.vcfsuffix
         run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-        Path(self.vcfprefix + ".bcf").unlink()
+        Path(self.vcfprefix + self.vcfsuffix).unlink()
 
     # Do genotype level filtering
     # -S : sets genotypes which fail -i to missing (./.)

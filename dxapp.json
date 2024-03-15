@@ -3,7 +3,7 @@
   "title": "FilterBCF",
   "summary": "Filter a target BCF according to parameters set by MRC Epidemiology",
   "dxapi": "1.0.0",
-  "version": "0.0.1",
+  "version": "1.0.1",
   "inputSpec": [
     {
       "name": "input_vcfs",
