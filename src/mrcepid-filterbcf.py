@@ -7,20 +7,15 @@
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
 import csv
-import sys
 import dxpy
 
 from pathlib import Path
 from time import sleep
 from os.path import exists
-from typing import TypedDict, Tuple
+from typing import TypedDict, Tuple, List
 
 from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.thread_utility import ThreadUtility
-
-# We have to do this to get modules to run properly on DNANexus while still enabling easy editing in PyCharm
-sys.path.append('/')
-sys.path.append('/filterbcf/')
 
 from filterbcf.ingest_data import IngestData
 from filterbcf.vcf_filter.vcf_filter import VCFFilter
@@ -112,14 +107,13 @@ def process_vcf(vcf: str) -> ProcessedReturn:
 
 
 @dxpy.entry_point('main')
-def main(input_vcfs, coordinates_name, human_reference, human_reference_index, vep_cache, loftee_libraries,
-         gnomad_maf_db, revel_db,
-         cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels):
+def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_reference_index: dict,
+         vep_cache: dict, loftee_libraries: dict, cadd_annotations: dict, precomputed_cadd_snvs: dict,
+         precomputed_cadd_indels: dict, additional_annotations: List[dict]):
 
     # Separate function to acquire necessary resource files
     ingested_data = IngestData(input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
-                               gnomad_maf_db, revel_db,
-                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels)
+                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels, additional_annotations)
 
     # Now build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads

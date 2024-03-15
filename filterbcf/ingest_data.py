@@ -1,27 +1,44 @@
+import gzip
 import os
+from typing import List, TypedDict
+
 import dxpy
 
 from pathlib import Path
 
-from general_utilities.association_resources import run_cmd, find_index
+from general_utilities.association_resources import find_index, download_dxfile_by_name
+from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.thread_utility import ThreadUtility
+
+
+class AdditionalAnnotation(TypedDict):
+    file: Path
+    index: Path
+    header_file: Path
+    annotation_name: str
 
 
 class IngestData:
 
     def __init__(self, input_vcfs: dict, human_reference: dict, human_reference_index: dict, vep_cache: dict,
-                 loftee_libraries: dict, gnomad_maf_db: dict, revel_db: dict,
-                 cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict):
+                 loftee_libraries: dict,
+                 cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict,
+                 additional_annotations: List[dict]):
+
+        # Get a Docker image with executables
+        self.cmd_executor = build_default_command_executor()
 
         # Set variables we want to store:
         self._set_vcf_list(input_vcfs)
 
         # Here we are downloading & unpacking resource files that are required for the annotation engine, they are:
-        self._ingest_docker_file()
         self._ingest_human_reference(human_reference, human_reference_index)
         self._ingest_loftee_files(loftee_libraries)
-        self._ingest_gnomad_files(gnomad_maf_db)
-        self._ingest_revel_files(revel_db)
+
+        # And here we are downloading and processing additional resource files (if required):
+        self.annotations: List[AdditionalAnnotation] = []
+        for annotation_file in additional_annotations:
+            self.annotations.append(self._ingest_annotation(annotation_file))
 
         # These two downloads are submitted to a ThreadPoolExecutor so that they download in the background while
         # we perform initial filtering. The monitoring of these threads is handled by the parent class
@@ -44,49 +61,21 @@ class IngestData:
             self.input_vcfs.append(input_vcf.rstrip())
         input_vcf_reader.close()
 
-    # Bring a prepared docker image into our environment so that we can run commands we need:
-    # The Dockerfile to build this image is located at resources/Dockerfile
-    @staticmethod
-    def _ingest_docker_file() -> None:
-        cmd = "docker pull egardner413/mrcepid-burdentesting:latest"
-        run_cmd(cmd, is_docker=False)
-
     # Human reference files – default dxIDs are the location of the GRCh38 reference file on AWS London
-    @staticmethod
-    def _ingest_human_reference(human_reference: dict, human_reference_index: dict) -> None:
+    def _ingest_human_reference(self, human_reference: dict, human_reference_index: dict) -> None:
         dxpy.download_dxfile(dxpy.DXFile(human_reference).get_id(), "reference.fasta.gz")
         dxpy.download_dxfile(dxpy.DXFile(human_reference_index).get_id(), "reference.fasta.fai")
         cmd = "gunzip reference.fasta.gz"  # Better to unzip the reference for most commands for some reason...
-        run_cmd(cmd, is_docker=False)
+        self.cmd_executor.run_cmd(cmd)
 
     # loftee reference files:
-    @staticmethod
-    def _ingest_loftee_files(loftee_libraries) -> None:
+    def _ingest_loftee_files(self, loftee_libraries) -> None:
 
         os.mkdir("loftee_files/")
         dxpy.download_dxfile(dxpy.DXFile(loftee_libraries), 'loftee_files/loftee_hg38.tar.gz')
         cmd = "tar -zxf loftee_files/loftee_hg38.tar.gz -C loftee_files/"
-        run_cmd(cmd, is_docker=False)
+        self.cmd_executor.run_cmd(cmd)
         Path('loftee_files/loftee_hg38.tar.gz').unlink()
-
-    # gnomAD MAF files:
-    def _ingest_gnomad_files(self, gnomad_maf_db: dict) -> None:
-
-        os.mkdir("gnomad_files/")
-        gnomad_dx_file = dxpy.DXFile(gnomad_maf_db)
-        dxpy.download_dxfile(gnomad_dx_file.get_id(), 'gnomad_files/gnomad.tsv.gz')
-        dxpy.download_dxfile(find_index(gnomad_dx_file, 'tbi'), 'gnomad_files/gnomad.tsv.gz.tbi')
-
-        self._write_gnomad_header()
-
-    # REVEL files
-    def _ingest_revel_files(self, revel_db):
-
-        os.mkdir("revel_files/")
-        revel_dx_file = dxpy.DXFile(revel_db)
-        dxpy.download_dxfile(revel_dx_file.get_id(), 'revel_files/new_tabbed_revel_grch38.tsv.gz')
-        dxpy.download_dxfile(find_index(revel_dx_file, 'tbi').get_id(),
-                             'revel_files/new_tabbed_revel_grch38.tsv.gz.tbi')
 
     # VEP cache file
     def _ingest_vep_cache(self, vep_cache: dict) -> None:
@@ -95,7 +84,7 @@ class IngestData:
         dxpy.download_dxfile(dxpy.DXFile(vep_cache).get_id(), 'vep_caches/vep_cache.tar.gz')
 
         cmd = "tar -zxf vep_caches/vep_cache.tar.gz -C vep_caches/"
-        run_cmd(cmd, is_docker=False)
+        self.cmd_executor.run_cmd(cmd)
 
         # Write the header for use with bcftools annotate
         self._write_vep_header()
@@ -112,7 +101,7 @@ class IngestData:
         os.mkdir("cadd_files/")
         dxpy.download_dxfile(dxpy.DXFile(cadd_annotations).get_id(), 'cadd_files/annotationsGRCh38_v1.6.tar.gz')
         cmd = "tar -zxf cadd_files/annotationsGRCh38_v1.6.tar.gz -C cadd_files/"
-        run_cmd(cmd, is_docker=False)
+        self.cmd_executor.run_cmd(cmd)
         # And finally remove the large annotations tar ball
         Path('cadd_files/annotationsGRCh38_v1.6.tar.gz').unlink()
         print('CADD resources finished downloading and unpacking...')
@@ -124,18 +113,50 @@ class IngestData:
 
         # SNVs...
         cadd_snvs_dx_file = dxpy.DXFile(precomputed_cadd_snvs)
+        cadd_snvs_dx_index = find_index(cadd_snvs_dx_file, 'tbi')
         dxpy.download_dxfile(cadd_snvs_dx_file.get_id(), 'cadd_precomputed/whole_genome_SNVs.tsv.gz')
-        dxpy.download_dxfile(find_index(cadd_snvs_dx_file, 'tbi').get_id(),
-                             'cadd_precomputed/whole_genome_SNVs.tsv.gz.tbi')
+        dxpy.download_dxfile(cadd_snvs_dx_index.get_id(), 'cadd_precomputed/whole_genome_SNVs.tsv.gz.tbi')
         # InDels...
         cadd_indels_dx_file = dxpy.DXFile(precomputed_cadd_indels)
+        cadd_index_dx_index = find_index(cadd_indels_dx_file, 'tbi')
         dxpy.download_dxfile(cadd_indels_dx_file.get_id(), 'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz')
-        dxpy.download_dxfile(find_index(cadd_indels_dx_file, 'tbi').get_id(),
-                             'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi')
+        dxpy.download_dxfile(cadd_index_dx_index.get_id(), 'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi')
 
         # Write a header:
         self._write_cadd_header()
         print('Precomputed CADD resources finished downloading and unpacking...')
+
+    def _ingest_annotation(self, annotation_dxfile: dict) -> AdditionalAnnotation:
+
+        annotation_path = download_dxfile_by_name(annotation_dxfile)
+        index_dxfile = find_index(dxpy.DXFile(annotation_dxfile), 'tbi')
+        annotation_name = ''
+        index_path = download_dxfile_by_name(index_dxfile)
+
+        with gzip.open(annotation_path, 'rt') as annotation_reader:
+            file_header = annotation_reader.readlines(1)[0].rstrip()
+
+        # File header should only have 5 items:
+        # 0 = CHROM
+        # 1 = POS
+        # 2 = REF
+        # 3 = ALT
+        # 4 = Annotation itself
+        if len(file_header) == 5 and file_header[0] == 'CHROM' and file_header[1] == 'POS' and file_header[2] == 'REF' and file_header[3] == 'ALT':
+            annotation_name = file_header[4]
+            header_file = Path(f'{annotation_name}.header.txt')
+            with header_file.open('w') as header_writer:
+                # Because I am never using the VCF to do any filtering on these fields, we use the most unbounded
+                # 'Number' and 'Type' fields so essentially anything can be entered by the user
+                header_writer.write(f'##INFO=<ID={annotation_name},Number=.,Type=String,Description="{annotation_name} annotation.">\n')
+
+        else:
+            raise dxpy.AppError(f'File format of annotations file {annotation_path} is incorrect – '
+                                f'header = {file_header}')
+
+        return {'file': annotation_path, 'index': index_path, 'annotation_name': annotation_name,
+                'header_file': header_file}
+
 
     # Writes a VCF style header that is compatible with bcftools annotate for adding VEP info back into our filtered VCF
     @staticmethod
@@ -186,6 +207,5 @@ class IngestData:
     # Write a header for cadd annotation with bcftools annotate
     @staticmethod
     def _write_cadd_header() -> None:
-        header_writer = open('cadd.header.txt', 'w')
-        header_writer.writelines('##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">' + "\n")
-        header_writer.close()
+        with Path('cadd.header.txt').open('w') as header_writer:
+            header_writer.write(f'##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">\n"')
