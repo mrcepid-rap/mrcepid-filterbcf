@@ -13,7 +13,7 @@
       "patterns": [
         "*.txt"
       ],
-      "help": "List of input BCF files from mrcepid-splitbcf."
+      "help": "File containing list of input BCF files from mrcepid-splitbcf."
     },
     {
       "name": "coordinates_name",
