@@ -10,20 +10,9 @@ class VCFFilter:
         self.vcfprefix = vcfprefix
         self.vcfsuffix = vcfsuffix
 
-        self._normalise_and_left_correct()
         self._genotype_filter()
         self._set_missingness_values()
         self._set_filter_flags()
-
-    # Just a wrapper for BCFtools norm for each bcf file
-    # Generate a normalised bcf file for all downstream processing:
-    # -m : splits all multiallelics into separate records
-    # -f : provides a reference file so bcftools can left-normalise and check records against the reference genome
-    def _normalise_and_left_correct(self) -> None:
-        cmd = "bcftools norm --threads 2 -Ob -m - -f /test/reference.fasta " \
-              "-o /test/" + self.vcfprefix + ".norm.bcf /test/" + self.vcfprefix + self.vcfsuffix
-        run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
-        Path(self.vcfprefix + self.vcfsuffix).unlink()
 
     # Do genotype level filtering
     # -S : sets genotypes which fail -i to missing (./.)
