@@ -110,10 +110,10 @@ class VCFAnnotate:
             rec['is_indel'] = False
 
         # By UKBB convention, only variants that are multiallelic have a ";" in the name
-        if ';' in rec['ID']:
-            rec['is_multiallelic'] = True
-        else:
+        if rec['MA'] == '.':
             rec['is_multiallelic'] = False
+        else:
+            rec['is_multiallelic'] = True
 
         # This corrects an issue with sites with 100% missingness that BCFtools doesn't handle correctly
         if rec['AF'] == '.':
@@ -192,8 +192,7 @@ class VCFAnnotate:
               "-i /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz --format vcf --fasta /test/reference.fasta " \
               "-o /test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.vcf.gz --compress_output bgzip --vcf " \
               "--dir_plugins ensembl-vep/cache/Plugins/ " \
-              "--plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw " \
-              "--plugin REVEL,/test/revel_files/new_tabbed_revel_grch38.tsv.gz"
+              "--plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw"
         run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
         Path(self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vcf.gz").unlink()
 
@@ -253,7 +252,7 @@ class VCFAnnotate:
         # -d :  outputs duplicate transcripts on separate lines. In other words, a gene may have multiple transcripts,
         # and put each transcript and CSQ on a separate line in the tsv file
         # -f : CSQ fields that we want to output into the tsv file
-        cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%CADD\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\t%Amino_acids\\t%Protein_position\\n' " \
+        cmd = "bcftools +split-vep -df '%CHROM\\t%POS\\t%REF\\t%ALT\\t%ID\\t%FILTER\\t%INFO/AF\\t%F_MISSING\\t%AN\\t%AC\\t%MA\\t%MANE_SELECT\\t%Feature\\t%Gene\\t%BIOTYPE\\t%CANONICAL\\t%SYMBOL\\t%Consequence\\t%gnomAD_MAF\\t%CADD\\t%REVEL\\t%SIFT\\t%PolyPhen\\t%LoF\\t%Amino_acids\\t%Protein_position\\n' " \
               "-o /test/" + self.vcfprefix + ".vep_table.tsv " + \
               "/test/" + self.vcfprefix + ".norm.filtered.tagged.missingness_filtered.sites.vep.gnomad.cadd.bcf"
         run_cmd(cmd, is_docker=True, docker_image='egardner413/mrcepid-burdentesting')
@@ -265,7 +264,7 @@ class VCFAnnotate:
 
         # These are all possible fields from the vep table that we generated in run_vep()
         # And then read it in as a csv.DictReader()
-        csv_reader_header = ("CHROM", "POS", "REF", "ALT", "ID", "FILTER", "AF", "prop_missing", "AN", "AC",
+        csv_reader_header = ("CHROM", "POS", "REF", "ALT", "ID", "FILTER", "AF", "prop_missing", "AN", "AC", "MA",
                              "mane_transcript", "ENST_ID", "ENSG_ID", "biotype", "is_canonical", "symbol", "csq",
                              "gnomad_maf", "CADD", "REVEL", "SIFT", "PolyPhen", "LoF", "AA", "AApos")
         vep_reader = csv.DictReader(open(self.vcfprefix + '.vep_table.tsv', 'r', newline='\n'), delimiter="\t",
