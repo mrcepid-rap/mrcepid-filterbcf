@@ -260,14 +260,14 @@ class IngestData:
         This function also writes a VCF header specific to this annotation for use with bcftools annotate by taking
         the first 1000 records and inferring the data type of the annotation using :func:`_determine_annotation_type()`.
 
-        :param annotation_dxfile:
+        :param annotation_dxfile: A dxlink to an additional annotation file
         :return:
         """
 
         annotation_path = download_dxfile_by_name(annotation_dxfile)
-        index_dxfile = find_index(dxpy.DXFile(annotation_dxfile), 'tbi')
-        annotation_name = ''
+        index_dxfile = find_index(annotation_dxfile, 'tbi')
         index_path = download_dxfile_by_name(index_dxfile)
+        annotation_name = ''
 
         with gzip.open(annotation_path, 'rt') as annotation_reader:
 
