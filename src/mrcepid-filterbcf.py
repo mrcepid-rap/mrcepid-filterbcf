@@ -11,13 +11,13 @@ import dxpy
 
 from pathlib import Path
 from time import sleep
-from os.path import exists
-from typing import TypedDict, Tuple, List
+from typing import TypedDict, List
 
 from general_utilities.association_resources import download_dxfile_by_name
+from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 
-from filterbcf.ingest_data import IngestData
+from filterbcf.ingest_data import IngestData, AdditionalAnnotation
 from filterbcf.vcf_filter.vcf_filter import VCFFilter
 from filterbcf.vcf_annotate.vcf_annotate import VCFAnnotate
 
@@ -31,79 +31,42 @@ class ProcessedReturn(TypedDict):
     output_bcf_idx: dxpy.DXFile
     output_vep: dxpy.DXFile
     output_vep_idx: dxpy.DXFile
-    output_per_sample: dxpy.DXFile
-
-
-def identify_vcf_format(vcf_name: str) -> Tuple[str, str]:
-    """Decide which variant data type we are using
-
-    Identifies .bcf or .vcf.gz binary vcf formats and reports the prefix and suffix. Also throws an error if the suffix
-    is not correct. Thus
-
-    test.vcf.gz or test.bcf
-
-    becomes
-
-    test, .vcf.gz or test, .bcf
-
-    :param vcf_name: A vcf file in str format
-    :return: A tuple of vcf_prefix, vcf_suffix
-    """
-
-    if vcf_name.endswith('.vcf.gz'):
-        vcf_prefix = vcf_name[:-7]
-        vcf_suffix = '.vcf.gz'
-    elif vcf_name.endswith('.bcf'):
-        vcf_prefix = vcf_name[:-4]
-        vcf_suffix = '.bcf'
-    else:
-        raise ValueError('VCF does not end with .vcf.gz or .bcf and may indicate formatting issues!')
-
-    return vcf_prefix, vcf_suffix
 
 
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
-def process_vcf(vcf: str) -> ProcessedReturn:
-
-    # Create a DXFile instance of the given file:
-    vcf = dxpy.DXFile(vcf)
-
-    # Get the suffix on the vcf file
-    vcfname = vcf.describe()['name']
-    vcfprefix, vcfsuffix = identify_vcf_format(vcfname)
+def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
+                cmd_executor: CommandExecutor) -> ProcessedReturn:
 
     # Download the VCF file chunk to the instance
-    download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID)
+    vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID)
 
     # 1. Do normalisation and filtering
-    print(f'Filtering bcf: {vcfname}')
-    VCFFilter(vcfprefix, vcfsuffix)
+    vcf_filter = VCFFilter(vcf_path, cmd_executor)
 
     # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
-    # We know that when the original .tar.gz files are gone, that it is safe as deleting those files is the final step
+    # We know that when the original .tar.gz files are gone it is safe proceed; deleting these files is the final step
     # of the download process.
-    vep_tar = 'vep_caches/vep_cache.tar.gz'
-    cadd_tar = 'cadd_files/annotationsGRCh38_v1.6.tar.gz'
-    precomputed_index = 'cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi'
-    while (exists(vep_tar) or exists(cadd_tar)) and exists(precomputed_index) is False:
+    downloads = [Path('reference.fasta.gz'),
+                 Path('loftee_hg38.tar.gz'),
+                 Path('homo_sapiens_vep_108_GRCh38.tar.gz'),
+                 Path('annotationsGRCh38_v1.6.tar.gz')]
+    cadd_index = Path('cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi')
+
+    while True in [file.exists() for file in downloads] and cadd_index.exists() is False:
         sleep(5)
 
     # 2. Do annotation
-    print(f'Annotating bcf: {vcfname}')
-    vcf_annotater = VCFAnnotate(vcfprefix)
-
-    print(f'Finished bcf: {vcfname}')
+    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
             'end': vcf_annotater.chunk_end,
-            'vcf_prefix': vcfprefix,
+            'vcf_prefix': vcf_path.stem,
             'output_bcf': vcf_annotater.finalbcf,
             'output_bcf_idx': vcf_annotater.finalbcf_index,
             'output_vep': vcf_annotater.finalvep,
-            'output_vep_idx': vcf_annotater.finalvep_index,
-            'output_per_sample': vcf_annotater.output_per_sample}
+            'output_vep_idx': vcf_annotater.finalvep_index}
 
 
 @dxpy.entry_point('main')
@@ -111,20 +74,23 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
          vep_cache: dict, loftee_libraries: dict, cadd_annotations: dict, precomputed_cadd_snvs: dict,
          precomputed_cadd_indels: dict, additional_annotations: List[dict]):
 
-    # Separate function to acquire necessary resource files
-    ingested_data = IngestData(input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
-                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels, additional_annotations)
-
-    # Now build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
+    # Build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads
     # 2 threads for downloading (1 each for CADD and VEP)
     # 2 threads for each BCF
     thread_utility = ThreadUtility(thread_factor=2, error_message='A bcffiltering thread failed', incrementor=5)
 
+    # Separate function to acquire necessary resource files
+    # We pass the above thread utility here to ensure that the download threads are managed by the same thread utility
+    ingested_data = IngestData(input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
+                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels, additional_annotations,
+                               thread_utility)
+
     # And launch the requested threads
     for input_vcf in ingested_data.input_vcfs:
         thread_utility.launch_job(process_vcf,
-                                  vcf=input_vcf)
+                                  vcf=input_vcf,
+                                  additional_annotations=ingested_data.annotations)
     print("All threads submitted...")
 
     # And add the resulting futures to relevant output arrays / file
@@ -132,7 +98,6 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     output_bcf_idxs = []
     output_veps = []
     output_vep_idxs = []
-    output_per_samples = []
 
     # This file contains information about the 'chunks' that have been processed. It DOES NOT have a header to
     # make it easier to concatenate coordinate files from multiple runs. The columns are as follows:
@@ -154,7 +119,6 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
             output_bcf_idxs.append(result['output_bcf_idx'])
             output_veps.append(result['output_vep'])
             output_vep_idxs.append(result['output_vep_idx'])
-            output_per_samples.append(result['output_per_sample'])
             writer_dict = {
                 'chrom': result['chrom'],
                 'start': result['start'],
@@ -174,7 +138,6 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
               "output_bcf_idxs": [dxpy.dxlink(item) for item in output_bcf_idxs],
               "output_veps": [dxpy.dxlink(item) for item in output_veps],
               "output_vep_idxs": [dxpy.dxlink(item) for item in output_vep_idxs],
-              "output_per_samples": [dxpy.dxlink(item) for item in output_per_samples],
               "coordinates_file": dxpy.dxlink(dxpy.upload_local_file(coordinates_name))}
 
     # This returns all the information about your exit files to the work managing your job via DNANexus:

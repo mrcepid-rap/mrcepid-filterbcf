@@ -136,16 +136,6 @@
       "help": "Associated indices for TSV file(s)"
     },
     {
-      "name": "output_per_samples",
-      "label": "Output per sample consequence annotations",
-      "class": "array:file",
-      "optional": false,
-      "patterns": [
-        "*.tsv"
-      ],
-      "help": "Per-sample variants with AF < 1e-3 for QC."
-    },
-    {
       "name": "coordinates_file",
       "label": "Coordinates of each bcf processed by this job",
       "class": "file",
@@ -175,10 +165,10 @@
     "version": "0",
     "execDepends": [
       {
-        "name": "general_utilities",
+        "name": "filterbcf",
         "package_manager": "git",
-        "url":  "https://github.com/mrcepid-rap/general_utilities.git",
-        "tag": "test_subjob",
+        "url":  "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
+        "tag": "v1.1.0",
         "build_commands": "pip3 install ."
       }
     ]
