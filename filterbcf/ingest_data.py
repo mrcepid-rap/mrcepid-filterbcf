@@ -26,7 +26,7 @@ class IngestData:
     def __init__(self, input_vcfs: dict, human_reference: dict, human_reference_index: dict, vep_cache: dict,
                  loftee_libraries: dict,
                  cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict,
-                 additional_annotations: List[dict]):
+                 additional_annotations: List[dict], thread_utility: ThreadUtility):
         """A class to download resources required for annotation of UKBiobank BCF files. This class is simple and in
         most cases only downloads inputs. It is designed to be used in a multi-threaded environment so that the
         download of very large resource files (e.g. VEP cache) can be done in tandem.
@@ -57,10 +57,9 @@ class IngestData:
         for annotation_file in additional_annotations:
             self.annotations.append(self._ingest_annotation(annotation_file))
 
-        # Here we are downloading & unpacking resource files that are required for the annotation engine, they are:
+        # Here we are downloading & unpacking resource files that are required for the annotation engine:
         # These downloads are submitted to a ThreadPoolExecutor so that they download in the background while
         # we perform initial filtering. The monitoring of these threads is handled by the parent class
-        thread_utility = ThreadUtility(thread_factor=2, error_message='A data ingest thread failed...', incrementor=1)
         thread_utility.launch_job(self._ingest_human_reference, human_reference=human_reference,
                                   human_reference_index=human_reference_index)
         thread_utility.launch_job(self._ingest_loftee_files, loftee_libraries=loftee_libraries)
@@ -69,7 +68,6 @@ class IngestData:
         thread_utility.launch_job(self._ingest_precomputed_cadd_files,
                                   precomputed_cadd_snvs=precomputed_cadd_snvs,
                                   precomputed_cadd_indels=precomputed_cadd_indels)
-        thread_utility.collect_futures()
 
     def _set_vcf_list(self, input_vcfs: dict) -> List[str]:
         """Download the input VCF list.
@@ -101,7 +99,7 @@ class IngestData:
         human_reference_path = download_dxfile_by_name(human_reference)
         human_reference_index_path = download_dxfile_by_name(human_reference_index)
         human_reference_path.rename('reference.fasta.gz')
-        human_reference_index_path.rename('reference.fasta.gz')
+        human_reference_index_path.rename('reference.fasta.fai')
 
         # Better to unzip the reference for most tools for some reason...
         self.cmd_executor.run_cmd("gunzip reference.fasta.gz")
@@ -117,7 +115,6 @@ class IngestData:
         loftee_dir = Path('loftee_files/')
         loftee_dir.mkdir(exist_ok=True)
         loftee_path = download_dxfile_by_name(loftee_libraries)
-        loftee_path = loftee_path.rename(loftee_dir / loftee_path.name)
 
         cmd = f'tar -zxf {loftee_path} -C {loftee_dir}/'
         self.cmd_executor.run_cmd(cmd)
@@ -134,7 +131,6 @@ class IngestData:
         vep_dir = Path('vep_caches/')
         vep_dir.mkdir(exist_ok=True)  # This is for legacy reasons to make sure all tests work...
         vep_path = download_dxfile_by_name(vep_cache)
-        vep_path = vep_path.rename(vep_dir / vep_path.name)
 
         cmd = f'tar -zxf {vep_path} -C {vep_dir}/'
         self.cmd_executor.run_cmd(cmd)
@@ -158,7 +154,6 @@ class IngestData:
         cadd_dir = Path('cadd_files/')
         cadd_dir.mkdir(exist_ok=True)
         cadd_path = download_dxfile_by_name(cadd_annotations)
-        cadd_path = cadd_path.rename(cadd_dir / cadd_path.name)
 
         cmd = f'tar -zxf {cadd_path} -C {cadd_dir}/'
         self.cmd_executor.run_cmd(cmd)
