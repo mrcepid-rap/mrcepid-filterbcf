@@ -259,8 +259,8 @@ class IngestData:
         :return:
         """
 
-        annotation_path = download_dxfile_by_name(annotation_dxfile)
         index_dxfile = find_index(annotation_dxfile, 'tbi')
+        annotation_path = download_dxfile_by_name(annotation_dxfile)
         index_path = download_dxfile_by_name(index_dxfile)
         annotation_name = ''
 
