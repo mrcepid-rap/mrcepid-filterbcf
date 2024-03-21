@@ -90,7 +90,9 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     for input_vcf in ingested_data.input_vcfs:
         thread_utility.launch_job(process_vcf,
                                   vcf=input_vcf,
-                                  additional_annotations=ingested_data.annotations)
+                                  additional_annotations=ingested_data.annotations,
+                                  cmd_executor=ingested_data.cmd_executor)
+
     print("All threads submitted...")
 
     # And add the resulting futures to relevant output arrays / file
