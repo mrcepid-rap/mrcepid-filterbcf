@@ -53,11 +53,20 @@ class VCFFilter:
 
         output_vcf = Path(f'{self._vcf_prefix}.filtered.bcf')
         cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 2 -S . ' \
-              f'-i "(TYPE=\'snp\' & FMT/DP >= 7 & ((FMT/GT=\'RR\' & FMT/GQ >= 20) | ' \
-              f'(FMT/GT=\'RA\' & FMT/GQ >= 20 & binom(FMT/AD) > 0.001) | ' \
+              f'-i "(TYPE=\'snp\' & sSUM(FMT/LAD) >= 7 & (' \
+              f'(FMT/GT=\'RR\' & FMT/GQ >= 20) | ' \
+              f'(FMT/GT=\'RA\' & FMT/GQ >= 20 & binom(FMT/LAD) > 0.001) | ' \
               f'(FMT/GT=\'AA\'))) | ' \
-              f'(TYPE=\'indel\' & FMT/DP >= 10 & FMT/GQ >= 20)" ' \
+              f'(TYPE=\'indel\' & sSUM(FMT/LAD) >= 10 & FMT/GQ >= 20)" ' \
               f'/test/{input_vcf}'
+
+        # cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 2 -S . ' \
+        #       f'-i "(TYPE=\'snp\' & FMT/DP >= 7 & (' \
+        #       f'(FMT/GT=\'RR\' & FMT/GQ >= 20) | ' \
+        #       f'(FMT/GT=\'RA\' & FMT/GQ >= 20 & binom(FMT/AD) > 0.001) | ' \
+        #       f'(FMT/GT=\'AA\'))) | ' \
+        #       f'(TYPE=\'indel\' & FMT/DP >= 10 & FMT/GQ >= 20)" ' \
+        #       f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         input_vcf.unlink()  # Purge the original file to save HDD space
