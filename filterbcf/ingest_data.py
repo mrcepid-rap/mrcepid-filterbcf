@@ -135,9 +135,6 @@ class IngestData:
         cmd = f'tar -zxf {vep_path} -C {vep_dir}/'
         self.cmd_executor.run_cmd(cmd)
 
-        # Write the header for use with bcftools annotate
-        self._write_vep_header()
-
         # And purge the large tarball
         vep_path.unlink()
         self._logger.info('VEP resources finished downloading and unpacking...')
@@ -304,46 +301,6 @@ class IngestData:
 
         return {'file': annotation_path, 'index': index_path, 'annotation_name': annotation_name,
                 'header_file': header_file}
-
-    @staticmethod
-    def _write_vep_header() -> None:
-        """Writes a VCF style header that is compatible with bcftools annotate for adding VEP info back into our
-        filtered VCF.
-
-        :return: None
-        """
-        header_writer = open('vep_vcf.header.txt', 'w')
-        header_writer.writelines('##INFO=<ID=MANE,Number=1,Type=String,Description="Canonical MANE Transcript">' + "\n")
-        header_writer.writelines('##INFO=<ID=ENST,Number=1,Type=String,Description="Canonical Ensembl '
-                                 'Transcript">' + "\n")
-        header_writer.writelines('##INFO=<ID=ENSG,Number=1,Type=String,Description="Canonical Ensembl Gene">' + "\n")
-        header_writer.writelines('##INFO=<ID=BIOTYPE,Number=1,Type=String,Description="Biotype of ENSG as in '
-                                 'VEP">' + "\n")
-        header_writer.writelines('##INFO=<ID=SYMBOL,Number=1,Type=String,Description="HGNC Gene ID">' + "\n")
-        header_writer.writelines('##INFO=<ID=CSQ,Number=1,Type=String,Description="Most severe VEP CSQ for this '
-                                 'variant">' + "\n")
-        header_writer.writelines('##INFO=<ID=gnomAD_AF,Number=1,Type=Float,Description="gnomAD v3.0 Exomes AF. If 0,'
-                                 ' variant does not exist in gnomAD">' + "\n")
-        header_writer.writelines('##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">' + "\n")
-        header_writer.writelines('##INFO=<ID=SIFT,Number=1,Type=String,Description="SIFT Score. '
-                                 'NA if not a missense variant.">' + "\n")
-        header_writer.writelines('##INFO=<ID=POLYPHEN,Number=1,Type=String,Description="PolyPhen Score. '
-                                 'NA if not a missense variant.">' + "\n")
-        header_writer.writelines('##INFO=<ID=LOFTEE,Number=1,Type=String,Description="LOFTEE annotation if LoF CSQ. '
-                                 'NA if not a PTV.">' + "\n")
-        header_writer.writelines('##INFO=<ID=AA,Number=1,Type=String,Description="Amino acid change for this '
-                                 'variant.">' + "\n")
-        header_writer.writelines('##INFO=<ID=AApos,Number=1,Type=String,Description="Amino acid location in target '
-                                 'protein for change indicated by AA">' + "\n")
-        header_writer.writelines('##INFO=<ID=PARSED_CSQ,Number=1,Type=String,Description="Parsed simplified '
-                                 'CSQ">' + "\n")
-        header_writer.writelines('##INFO=<ID=MULTI,Number=1,Type=String,Description="Is variant multiallelic?">' + "\n")
-        header_writer.writelines('##INFO=<ID=INDEL,Number=1,Type=String,Description="Is variant an InDel?">' + "\n")
-        header_writer.writelines('##INFO=<ID=MINOR,Number=1,Type=String,Description="Minor Allele">' + "\n")
-        header_writer.writelines('##INFO=<ID=MAJOR,Number=1,Type=String,Description="Major Allele">' + "\n")
-        header_writer.writelines('##INFO=<ID=MAF,Number=1,Type=Float,Description="Minor Allele Frequency">' + "\n")
-        header_writer.writelines('##INFO=<ID=MAC,Number=1,Type=Float,Description="Minor Allele Count">' + "\n")
-        header_writer.close()
 
     @staticmethod
     def _write_cadd_header() -> None:
