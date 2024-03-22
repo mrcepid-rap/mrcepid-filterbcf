@@ -352,4 +352,4 @@ class IngestData:
         :return: None
         """
         with Path('cadd.header.txt').open('w') as header_writer:
-            header_writer.write(f'##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">\n"')
+            header_writer.write(f'##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">\n')
