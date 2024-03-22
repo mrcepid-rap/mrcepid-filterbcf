@@ -23,6 +23,7 @@ class VCFFilter:
         filter_out = self._genotype_filter(vcf_path)
         flag_out = self._set_missingness_values(filter_out)
         self.filtered_vcf = self._set_filter_flags(flag_out)
+        self.filtered_idx = self._write_index(self.filtered_vcf)
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
 
@@ -119,7 +120,15 @@ class VCFFilter:
 
         return output_vcf
 
-    def _write_index(self, input_vcf: Path) -> None:
+    def _write_index(self, input_vcf: Path) -> Path:
+        """Generate a .csi index file for the final bcf file.
 
+        :param input_vcf: The final, filtered bcf file to be indexed
+        :return: The path to the indexed bcf file (in .csi format)
+        """
+
+        output_index = Path(f'{input_vcf}.csi')
         cmd = f'bcftools index /test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
+
+        return output_index
