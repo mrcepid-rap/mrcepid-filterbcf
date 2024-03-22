@@ -118,3 +118,8 @@ class VCFFilter:
         input_vcf.unlink()
 
         return output_vcf
+
+    def _write_index(self, input_vcf: Path) -> None:
+
+        cmd = f'bcftools index /test/{input_vcf}'
+        self._cmd_executor.run_cmd_on_docker(cmd)
