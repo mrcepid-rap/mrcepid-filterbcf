@@ -52,7 +52,7 @@ class VCFAnnotate:
 
         # 6. Set final file outputs for this entire process:
         self.finalbcf = generate_linked_dx_file(filtered_vcf)
-        self.finalbcf_index = generate_linked_dx_file(f'{filtered_vcf}.tbi')
+        self.finalbcf_index = generate_linked_dx_file(f'{filtered_vcf}.csi')
         self.finalvep = generate_linked_dx_file(vep_gz)
         self.finalvep_index = generate_linked_dx_file(vep_gz_tbi)
 
