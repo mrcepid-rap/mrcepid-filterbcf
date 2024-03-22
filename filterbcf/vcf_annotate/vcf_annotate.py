@@ -133,8 +133,8 @@ class VCFAnnotate:
         # rec['gnomad_maf'] = rec['gnomad_maf'] if rec['gnomad_maf'] != '.' else '0' # Sites w/o gnomAD don't exist in gnomAD so a MAF of 0 seems appropriate
         # rec['REVEL'] = rec['REVEL'] if rec['REVEL'] != '.' else 'NaN' # NaN is default VCF spec for missing floats
         rec['SIFT'] = rec['SIFT'] if rec['SIFT'] != '.' else 'NA' # NA is default VCF spec for missing strings
-        rec['PolyPhen'] = rec['PolyPhen'] if rec['PolyPhen'] != '.' else 'NA' # NA is default VCF spec for missing strings
-        rec['LOFTEE'] = rec['LoF'] if rec['LoF'] != '.' else 'NA' # NA is default VCF spec for missing strings
+        rec['POLYPHEN'] = rec['POLYPHEN'] if rec['POLYPHEN'] != '.' else 'NA' # NA is default VCF spec for missing strings
+        rec['LOFTEE'] = rec['LOFTEE'] if rec['LOFTEE'] != '.' else 'NA' # NA is default VCF spec for missing strings
         rec['AA'] = rec['AA'] if rec['AA'] != '.' else 'NA'  # NA is default VCF spec for missing strings
         rec['AApos'] = rec['AApos'] if rec['AApos'] != '.' else 'NA'  # NA is default VCF spec for missing strings
 
