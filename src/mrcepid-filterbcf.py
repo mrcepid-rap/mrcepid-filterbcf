@@ -39,7 +39,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
                 cmd_executor: CommandExecutor) -> ProcessedReturn:
 
     # Download the VCF file chunk to the instance
-    vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID)
+    vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
 
     # 1. Do normalisation and filtering
     vcf_filter = VCFFilter(vcf_path, cmd_executor)
@@ -117,6 +117,11 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                                         delimiter="\t")
         # And gather the resulting futures
         for result in thread_utility:
+            # This 'if' statement has to be here because of download threads I run simultaneously.
+            # For some reason, when a 'None' result is returned, it doesn't trigger an exception and the entire process
+            # just hangs for eternity.
+            if result is None:
+                continue
             output_bcfs.append(result['output_bcf'])
             output_bcf_idxs.append(result['output_bcf_idx'])
             output_veps.append(result['output_vep'])
