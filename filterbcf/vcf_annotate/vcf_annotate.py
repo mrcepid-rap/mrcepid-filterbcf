@@ -1,5 +1,6 @@
 import csv
 import gzip
+import itertools
 
 from typing import TypedDict, Tuple, List
 from pathlib import Path
@@ -33,14 +34,20 @@ class VCFAnnotate:
         annotated_vcf = self._run_vep(sites_vcf)
 
         # 3. Add annotations that need to be done separately from VEP (e.g., gnomAD)
+
         # 3a. Run CADD and add it to the additional_annotation List to make appending to the VCF simple
-        additional_annotations.append(self._run_cadd(cadd_vcf))
+        # Note that I do CADD separate as the 'additional_annotations' list is a global variable, but CADD is
+        # specific to this VCF. Thus, appending CADD to 'additional_annotations' would be a bad idea.
+        cadd_annotation = self._run_cadd(cadd_vcf)
 
         # 3b. Add additional annotations
-        # Note that 'annotated_vcf' changes each time we add an annotation, but the final file should be the same
+        # Note that 'annotated_vcf' changes each time we add an annotation, but the final file should be the same. I
+        # use itertools here because I don't want to append the local cadd_annotation to the global
+        # additional_annotations. Doing so would result in ALL vcfs being processed in this applet seeing other VCF
+        # files CADD annotations.
         annotation_names = []
-        for annotation in additional_annotations:
-            self._logger.debug(f'{self.vcfprefix} {annotation["annotation_name"]}')
+        for annotation in itertools.chain(additional_annotations, [cadd_annotation]):
+            self._logger.warning(f'{self.vcfprefix} {annotation["annotation_name"]}')
             annotated_vcf, annotation_name = self._add_additional_annotation(annotated_vcf, annotation)
             annotation_names.append(annotation_name)
 
