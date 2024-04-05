@@ -40,6 +40,7 @@ class VCFAnnotate:
         # Note that 'annotated_vcf' changes each time we add an annotation, but the final file should be the same
         annotation_names = []
         for annotation in additional_annotations:
+            self._logger.debug(f'{self.vcfprefix} {annotation["annotation_name"]}')
             annotated_vcf, annotation_name = self._add_additional_annotation(annotated_vcf, annotation)
             annotation_names.append(annotation_name)
 
