@@ -47,7 +47,6 @@ class VCFAnnotate:
         # files CADD annotations.
         annotation_names = []
         for annotation in itertools.chain(additional_annotations, [cadd_annotation]):
-            self._logger.warning(f'{self.vcfprefix} {annotation["annotation_name"]}')
             annotated_vcf, annotation_name = self._add_additional_annotation(annotated_vcf, annotation)
             annotation_names.append(annotation_name)
 
@@ -433,7 +432,7 @@ class VCFAnnotate:
                     elif rec['BIOTYPE'] != 'protein_coding' and held_rec['BIOTYPE'] == 'protein_coding':
                         held_rec = held_rec
                     else:
-                        if (rec['MANE'] != '.' and current_severity_score['score'] <= 18) and held_rec['mane_transcript'] == '.':
+                        if (rec['MANE'] != '.' and current_severity_score['score'] <= 18) and held_rec['MANE'] == '.':
                             held_rec = rec
                             held_severity_score = self._define_score(held_rec['CSQ'])
                         elif rec['MANE'] == '.' and (held_rec['MANE'] != '.' and held_severity_score['score'] <= 18):
