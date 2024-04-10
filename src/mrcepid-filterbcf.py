@@ -36,7 +36,7 @@ class ProcessedReturn(TypedDict):
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
-                cmd_executor: CommandExecutor) -> ProcessedReturn:
+                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor) -> ProcessedReturn:
 
     # Download the VCF file chunk to the instance
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
@@ -57,7 +57,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
         sleep(5)
 
     # 2. Do annotation
-    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
+    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor, cadd_executor)
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
@@ -91,7 +91,8 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
         thread_utility.launch_job(process_vcf,
                                   vcf=input_vcf,
                                   additional_annotations=ingested_data.annotations,
-                                  cmd_executor=ingested_data.cmd_executor)
+                                  cmd_executor=ingested_data.cmd_executor,
+                                  cadd_executor=ingested_data.cadd_executor)
 
     print("All threads submitted...")
 
@@ -113,8 +114,12 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     with Path(coordinates_name).open('w') as coordinate_writer:
 
         coordinate_csv = csv.DictWriter(coordinate_writer,
-                                        fieldnames=['chrom', 'start', 'end', 'vcf_prefix', 'output_bcf', 'output_vep'],
+                                        fieldnames=['chrom', 'start', 'end', 'vcf_prefix',
+                                                    'output_bcf', 'output_bcf_idx', 'output_vep', 'output_vep_idx'],
                                         delimiter="\t")
+
+        coordinate_csv.writeheader()
+
         # And gather the resulting futures
         for result in thread_utility:
             # This 'if' statement has to be here because of download threads I run simultaneously.
@@ -132,7 +137,9 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                 'end': result['end'],
                 'vcf_prefix': result['vcf_prefix'],
                 'output_bcf': result['output_bcf'].describe()['id'],
-                'output_vep': result['output_vep'].describe()['id']}
+                'output_bcf_idx': result['output_bcf_idx'].describe()['id'],
+                'output_vep': result['output_vep'].describe()['id'],
+                'output_vep_idx': result['output_vep_idx'].describe()['id']}
             coordinate_csv.writerow(writer_dict)
 
     print("All threads completed...")

@@ -6,7 +6,8 @@ from pathlib import Path
 from typing import List, TypedDict, Tuple
 
 from general_utilities.association_resources import find_index, download_dxfile_by_name
-from general_utilities.job_management.command_executor import build_default_command_executor
+from general_utilities.job_management.command_executor import build_default_command_executor, DockerMount, \
+    CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
 
@@ -19,6 +20,7 @@ class AdditionalAnnotation(TypedDict):
     index: Path
     header_file: Path
     annotation_name: str
+    symbol_mode: bool
 
 
 class IngestData:
@@ -48,6 +50,14 @@ class IngestData:
 
         # Get a Docker image with executables
         self.cmd_executor = build_default_command_executor()
+
+        # CADD requires specialised mounts and a separate Docker image in Docker to run properly. I spoof the default
+        # paths that CADD expects as mount points within the image.
+        cadd_mounts = [DockerMount(local=Path('/home/dnanexus/cadd_files/'),
+                                   remote=Path('/CADD-scripts/data/annotations/')),
+                       DockerMount(local=Path('/home/dnanexus/cadd_precomputed/'),
+                                   remote=Path('/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/'))]
+        self.cadd_executor = CommandExecutor(docker_image='egardner413/mrcepid-cadd', docker_mounts=cadd_mounts)
 
         # Set variables we want to store:
         self.input_vcfs = self._set_vcf_list(input_vcfs)
@@ -272,35 +282,51 @@ class IngestData:
             # 2 = REF
             # 3 = ALT
             # 4 = Annotation itself
-            if len(file_header) == 5 and file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT']:
-                annotation_name = file_header[4]
+            # 5 = Optional SYMBOL tag for gene-specific annotation
+            if file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT'] or file_header[:4] == ['#CHROM', 'POS', 'REF', 'ALT']:
 
-                # Attempt to infer the datatype of the annotation in the annotation file:
-                values = []
-                for i, record in enumerate(annotation_csv):
-                    if i > 1000:
-                        break
+                if len(file_header) in range(5, 7):
+
+                    # Set the annotation name from the column name
+                    annotation_name = file_header[4]
+
+                    # Check if we have an SYMBOL value for each score
+                    symbol_mode = False
+                    if len(file_header) == 6 and file_header[5] == 'SYMBOL':
+                        symbol_mode = True
                     else:
-                        values.append(record[annotation_name])
+                        raise dxpy.AppError(f'Sixth column included in annotations file – {annotation_path} – but it'
+                                            f'is NOT a SYMBOL column. Please check the file.')
 
-                # Get information about the information in the annotation file
-                annotation_type, annotation_number = self._determine_annotation_type(values)
+                    # Attempt to infer the datatype of the annotation in the annotation file:
+                    values = []
+                    for i, record in enumerate(annotation_csv):
+                        if i > 1000:
+                            break
+                        else:
+                            values.append(record[annotation_name])
 
-                header_file = Path(f'{annotation_name}.header.txt')
-                with header_file.open('w') as header_writer:
-                    # Because I am never using the VCF to do any filtering on these fields, we use the most unbounded
-                    # 'Number' and 'Type' fields so essentially anything can be entered by the user
-                    header_writer.write(f'##INFO=<ID={annotation_name},'
-                                        f'Number={annotation_number},'
-                                        f'Type={annotation_type},'
-                                        f'Description="{annotation_name} annotation.">\n')
+                    # Get information about the information in the annotation file
+                    annotation_type, annotation_number = self._determine_annotation_type(values)
+
+                    header_file = Path(f'{annotation_name}.header.txt')
+                    with header_file.open('w') as header_writer:
+                        # Because I am never using the VCF to do any filtering on these fields, we use the most unbounded
+                        # 'Number' and 'Type' fields so essentially anything can be entered by the user
+                        header_writer.write(f'##INFO=<ID={annotation_name},'
+                                            f'Number={annotation_number},'
+                                            f'Type={annotation_type},'
+                                            f'Description="{annotation_name} annotation.">\n')
+                else:
+                    raise dxpy.AppError(f'Number of columns in annotations file {annotation_path} is incorrect – '
+                                        f'header = {file_header}')
 
             else:
-                raise dxpy.AppError(f'File format of annotations file {annotation_path} is incorrect – '
+                raise dxpy.AppError(f'Header of annotations file {annotation_path} is incorrect – '
                                     f'header = {file_header}')
 
         return {'file': annotation_path, 'index': index_path, 'annotation_name': annotation_name,
-                'header_file': header_file}
+                'header_file': header_file, 'symbol_mode': symbol_mode}
 
     @staticmethod
     def _write_cadd_header() -> None:
