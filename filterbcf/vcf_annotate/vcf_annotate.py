@@ -57,7 +57,7 @@ class VCFAnnotate:
 
         for annotation in additional_annotations:
             if annotation['symbol_mode'] is True:
-                vep_tsv, annotation_name = self._add_additional_annotation(vep_tsv, annotation)
+                vep_tsv, annotation_name = self._add_additional_symbol_annotation(vep_tsv, annotation)
                 annotation_names.append(annotation_name)
 
         # 5. Generating merged/final files:
