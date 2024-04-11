@@ -283,46 +283,41 @@ class IngestData:
             # 3 = ALT
             # 4 = Annotation itself
             # 5 = Optional SYMBOL tag for gene-specific annotation
-            if file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT'] or file_header[:4] == ['#CHROM', 'POS', 'REF', 'ALT']:
+            if (file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT'] or file_header[:4] == ['#CHROM', 'POS', 'REF', 'ALT']) and len(file_header) in range(5, 7):
 
-                if len(file_header) in range(5, 7):
+                # Set the annotation name from the column name
+                annotation_name = file_header[4]
 
-                    # Set the annotation name from the column name
-                    annotation_name = file_header[4]
-
-                    # Check if we have an SYMBOL value for each score
-                    symbol_mode = False
-                    if len(file_header) == 6 and file_header[5] == 'SYMBOL':
+                # Check if we have an SYMBOL value for each score
+                symbol_mode = False
+                if len(file_header) == 6:
+                    if file_header[5] == 'SYMBOL':
                         symbol_mode = True
                     else:
-                        raise dxpy.AppError(f'Sixth column included in annotations file – {annotation_path} – but it'
+                        raise dxpy.AppError(f'Sixth column included in annotations file – {annotation_path} – but it '
                                             f'is NOT a SYMBOL column. Please check the file.')
 
-                    # Attempt to infer the datatype of the annotation in the annotation file:
-                    values = []
-                    for i, record in enumerate(annotation_csv):
-                        if i > 1000:
-                            break
-                        else:
-                            values.append(record[annotation_name])
+                # Attempt to infer the datatype of the annotation in the annotation file:
+                values = []
+                for i, record in enumerate(annotation_csv):
+                    if i > 1000:
+                        break
+                    else:
+                        values.append(record[annotation_name])
 
-                    # Get information about the information in the annotation file
-                    annotation_type, annotation_number = self._determine_annotation_type(values)
+                # Get information about the information in the annotation file
+                annotation_type, annotation_number = self._determine_annotation_type(values)
 
-                    header_file = Path(f'{annotation_name}.header.txt')
-                    with header_file.open('w') as header_writer:
-                        # Because I am never using the VCF to do any filtering on these fields, we use the most unbounded
-                        # 'Number' and 'Type' fields so essentially anything can be entered by the user
-                        header_writer.write(f'##INFO=<ID={annotation_name},'
-                                            f'Number={annotation_number},'
-                                            f'Type={annotation_type},'
-                                            f'Description="{annotation_name} annotation.">\n')
-                else:
-                    raise dxpy.AppError(f'Number of columns in annotations file {annotation_path} is incorrect – '
-                                        f'header = {file_header}')
-
+                header_file = Path(f'{annotation_name}.header.txt')
+                with header_file.open('w') as header_writer:
+                    # Because I am never using the VCF to do any filtering on these fields, we use the most unbounded
+                    # 'Number' and 'Type' fields so essentially anything can be entered by the user
+                    header_writer.write(f'##INFO=<ID={annotation_name},'
+                                        f'Number={annotation_number},'
+                                        f'Type={annotation_type},'
+                                        f'Description="{annotation_name} annotation.">\n')
             else:
-                raise dxpy.AppError(f'Header of annotations file {annotation_path} is incorrect – '
+                raise dxpy.AppError(f'Number / name of columns in annotations file {annotation_path} is incorrect – '
                                     f'header = {file_header}')
 
         return {'file': annotation_path, 'index': index_path, 'annotation_name': annotation_name,
