@@ -230,7 +230,7 @@ class VCFAnnotate:
         output_vcf = Path(f'{self.vcfprefix}.sites.vep.vcf.gz')
         cmd = f'perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ ' \
               f'ensembl-vep/vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ ' \
-              f'--everything --allele_num --forks 2 ' \
+              f'--everything --allele_num --fork 2 ' \
               f'-i /test/{input_vcf} --format vcf --fasta /test/reference.fasta ' \
               f'-o /test/{output_vcf} --compress_output bgzip --vcf ' \
               f'--dir_plugins ensembl-vep/cache/Plugins/ ' \
