@@ -56,7 +56,9 @@ class IngestData:
         cadd_mounts = [DockerMount(local=Path('/home/dnanexus/cadd_files/'),
                                    remote=Path('/CADD-scripts/data/annotations/')),
                        DockerMount(local=Path('/home/dnanexus/cadd_precomputed/'),
-                                   remote=Path('/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/'))]
+                                   remote=Path('/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/')),
+                       DockerMount(local=Path('/home/dnanexus/'),
+                                   remote=Path('/test/'))]
         self.cadd_executor = CommandExecutor(docker_image='egardner413/mrcepid-cadd', docker_mounts=cadd_mounts)
 
         # Set variables we want to store:
