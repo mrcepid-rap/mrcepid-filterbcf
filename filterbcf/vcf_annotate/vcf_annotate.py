@@ -442,6 +442,10 @@ class VCFAnnotate:
             # Iterate through records (step 1)
             for rec in reader_csv:
 
+                # Skip the original header
+                if rec['CHROM'].startswith('#'):
+                    continue
+
                 # Set a unique record ID
                 current_rec_name = f'{rec["CHROM"]}_{rec["POS"]}_{rec["REF"]}_{rec["ALT"]}'
 
