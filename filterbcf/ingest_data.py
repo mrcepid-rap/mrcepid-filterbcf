@@ -265,7 +265,7 @@ class IngestData:
         the first 1000 records and inferring the data type of the annotation using :func:`_determine_annotation_type()`.
 
         :param annotation_dxfile: A dxlink to an additional annotation file
-        :return:
+        :return: An AdditionalAnnotation object
         """
 
         index_dxfile = find_index(annotation_dxfile, 'tbi')
