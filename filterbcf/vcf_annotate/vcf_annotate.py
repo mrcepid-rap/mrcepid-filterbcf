@@ -308,7 +308,7 @@ class VCFAnnotate:
 
         # Decide if we are matching on SYMBOL as well
         if annotation['symbol_mode']:
-            column_string = f'-c CHROM,POS,REF,ALT,{annotation["annotation_name"]},~SYMBOL -i \'TAG={{SYMBOL}}\' -k'
+            column_string = f'-c CHROM,POS,REF,ALT,{annotation["annotation_name"]},~SYMBOL -i \'SYMBOL={{SYMBOL}}\' -k'
         else:
             column_string = f'-c CHROM,POS,REF,ALT,{annotation["annotation_name"]}'
 
