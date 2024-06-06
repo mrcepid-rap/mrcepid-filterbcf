@@ -257,14 +257,14 @@ class VCFAnnotate:
         with gzip.open(cadd_tsv, 'rt') as cadd_reader,\
                 cadd_chr.open('w') as cadd_out:
 
-            cadd_csv = csv.DictWriter(cadd_out, delimiter='\t', fieldnames=['CHROM', 'POS', 'REF', 'ALT', 'CADD'])
+            cadd_csv = csv.DictWriter(cadd_out, delimiter='\t', fieldnames=['#CHROM', 'POS', 'REF', 'ALT', 'CADD'])
             cadd_csv.writeheader()
 
             for line in cadd_reader:
                 data = line.rstrip().split('\t')
                 if data[0].startswith('#'):
                     continue
-                cadd_csv.writerow({'CHROM': f'chr{data[0]}',
+                cadd_csv.writerow({'#CHROM': f'chr{data[0]}',
                                    'POS': data[1],
                                    'REF': data[2],
                                    'ALT': data[3],
