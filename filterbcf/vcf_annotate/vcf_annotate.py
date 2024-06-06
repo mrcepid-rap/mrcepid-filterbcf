@@ -175,7 +175,7 @@ class VCFAnnotate:
         # This should be the ONLY file that is .vcf.gz format as it is required by VEP
         # -G : strips genotypes
         output_sites = Path(f'{self.vcfprefix}.sites.vcf.gz')
-        cmd = f'bcftools view --threads 2 -G -Oz ' \
+        cmd = f'bcftools view --threads 4 -G -Oz ' \
               f'-o /test/{output_sites} ' \
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
@@ -223,7 +223,7 @@ class VCFAnnotate:
         output_vcf = Path(f'{self.vcfprefix}.sites.vep.vcf.gz')
         cmd = f'perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ ' \
               f'ensembl-vep/vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ ' \
-              f'--everything --allele_num --fork 2 ' \
+              f'--everything --allele_num --fork 4 ' \
               f'-i /test/{input_vcf} --format vcf --fasta /test/reference.fasta ' \
               f'-o /test/{output_vcf} --compress_output bgzip --vcf ' \
               f'--dir_plugins ensembl-vep/cache/Plugins/ ' \
@@ -245,7 +245,7 @@ class VCFAnnotate:
 
         # Run CADD on the sites file from generate_sites_files():
         cadd_tsv = Path(f'{self.vcfprefix}.cadd.tsv')
-        cmd = f'CADD-scripts/CADD.sh -c 2 -g GRCh38 ' \
+        cmd = f'CADD-scripts/CADD.sh -c 4 -g GRCh38 ' \
               f'-o /test/{cadd_tsv} ' \
               f'/test/{cadd_vcf}'
 

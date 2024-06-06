@@ -78,7 +78,7 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     # 1 thread for monitoring threads
     # 2 threads for downloading (1 each for CADD and VEP)
     # 2 threads for each BCF
-    thread_utility = ThreadUtility(thread_factor=2, error_message='A bcffiltering thread failed', incrementor=5)
+    thread_utility = ThreadUtility(thread_factor=4, error_message='A bcffiltering thread failed', incrementor=5)
 
     # Separate function to acquire necessary resource files
     # We pass the above thread utility here to ensure that the download threads are managed by the same thread utility

@@ -53,7 +53,7 @@ class VCFFilter:
         """
 
         output_vcf = Path(f'{self._vcf_prefix}.filtered.bcf')
-        cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 2 -S . ' \
+        cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 4 -S . ' \
               f'-i "(TYPE=\'snp\' & sSUM(FMT/LAD) >= 7 & (' \
               f'(FMT/GT=\'RR\' & FMT/GQ >= 20) | ' \
               f'(FMT/GT=\'RA\' & FMT/GQ >= 20 & binom(FMT/LAD) > 0.001) | ' \
@@ -112,7 +112,7 @@ class VCFFilter:
         :return: Path to the missingness filtered bcf file
         """
         output_vcf = Path(f'{self._vcf_prefix}.missingness_filtered.bcf')
-        cmd = f'bcftools filter -i \'F_MISSING<=0.50 & AC!=0\' -s \'FAIL\' -Ob --threads 2 ' \
+        cmd = f'bcftools filter -i \'F_MISSING<=0.50 & AC!=0\' -s \'FAIL\' -Ob --threads 4 ' \
               f'-o /test/{output_vcf} ' \
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
@@ -128,7 +128,7 @@ class VCFFilter:
         """
 
         output_index = Path(f'{input_vcf}.csi')
-        cmd = f'bcftools index /test/{input_vcf}'
+        cmd = f'bcftools index --threads 4 /test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         return output_index
