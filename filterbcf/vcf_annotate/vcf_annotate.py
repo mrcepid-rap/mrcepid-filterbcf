@@ -317,7 +317,7 @@ class VCFAnnotate:
               f'"{self.chunk_chrom}:{self.chunk_start}-{self.chunk_end}" > {sliced_tsv}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='#', end_row=2)
+        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)
 
         if annotation['symbol_mode']:
             match_string = 'REF,ALT,SYMBOL:REF,ALT,SYMBOL'
