@@ -6,8 +6,8 @@ from typing import TypedDict, Tuple, List
 from pathlib import Path
 
 from filterbcf.ingest_data import AdditionalAnnotation
-from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix
-from general_utilities.job_management.command_executor import CommandExecutor, DockerMount
+from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix, replace_multi_suffix
+from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.mrc_logger import MRCLogger
 
 
@@ -310,6 +310,15 @@ class VCFAnnotate:
         :return: A Tuple containing the output TSV with additional annotation and the name of the annotation
         """
 
+        # Memory requires for annot-tsv appear to be very high for large files. I am slicing the annotation file down
+        # to the same region as the vcf to see if I can reduce memory requirements.
+        sliced_tsv = replace_multi_suffix(annotation["file"], f'.{self.vcfprefix}.sliced.tsv')
+        cmd = f'tabix --threads 4 -h /test/{annotation["file"]} ' \
+              f'"{self.chunk_chrom}:{self.chunk_start}-{self.chunk_end}" > {sliced_tsv}'
+        self._cmd_executor.run_cmd_on_docker(cmd)
+
+        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='#', end_row=2)
+
         if annotation['symbol_mode']:
             match_string = 'REF,ALT,SYMBOL:REF,ALT,SYMBOL'
         else:
@@ -321,7 +330,7 @@ class VCFAnnotate:
               f'-f {annotation["annotation_name"]} ' \
               f'-m {match_string} ' \
               f'-t /test/{input_tsv} ' \
-              f'-s /test/{annotation["file"]} ' \
+              f'-s /test/{sliced_bgzip} ' \
               f'-o /test/{output_tsv}'
         self._cmd_executor.run_cmd_on_docker(cmd)
         input_tsv.unlink()
