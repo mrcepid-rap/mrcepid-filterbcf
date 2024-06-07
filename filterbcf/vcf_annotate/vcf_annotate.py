@@ -270,7 +270,7 @@ class VCFAnnotate:
                                    'ALT': data[3],
                                    'CADD': data[5]})
 
-        cadd_gz, cadd_idx = bgzip_and_tabix(cadd_chr, end_row=2, comment_char='C')
+        cadd_gz, cadd_idx = bgzip_and_tabix(cadd_chr, end_row=2, comment_char='"#"')
 
         cadd_annotation: AdditionalAnnotation = {'annotation_name': 'CADD',
                                                  'file': cadd_gz,
