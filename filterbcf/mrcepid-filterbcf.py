@@ -17,9 +17,12 @@ from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 
-from filterbcf.ingest_data import IngestData, AdditionalAnnotation
-from filterbcf.vcf_filter.vcf_filter import VCFFilter
-from filterbcf.vcf_annotate.vcf_annotate import VCFAnnotate
+from filterbcf.methods.ingest_data import IngestData, AdditionalAnnotation
+from filterbcf.methods.vcf_filter import VCFFilter
+from filterbcf.methods.vcf_annotate import VCFAnnotate
+from general_utilities.mrc_logger import MRCLogger
+
+LOGGER = MRCLogger().get_logger()
 
 
 class ProcessedReturn(TypedDict):
@@ -36,13 +39,13 @@ class ProcessedReturn(TypedDict):
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
-                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor) -> ProcessedReturn:
+                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor, wes: bool) -> ProcessedReturn:
 
     # Download the VCF file chunk to the instance
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
 
     # 1. Do normalisation and filtering
-    vcf_filter = VCFFilter(vcf_path, cmd_executor)
+    vcf_filter = VCFFilter(vcf_path, cmd_executor, wes)
 
     # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
     # We know that when the original .tar.gz files are gone it is safe proceed; deleting these files is the final step
@@ -72,7 +75,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
 @dxpy.entry_point('main')
 def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_reference_index: dict,
          vep_cache: dict, loftee_libraries: dict, cadd_annotations: dict, precomputed_cadd_snvs: dict,
-         precomputed_cadd_indels: dict, additional_annotations: List[dict]):
+         precomputed_cadd_indels: dict, additional_annotations: List[dict], wes):
 
     # Build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads
@@ -92,9 +95,8 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                                   vcf=input_vcf,
                                   additional_annotations=ingested_data.annotations,
                                   cmd_executor=ingested_data.cmd_executor,
-                                  cadd_executor=ingested_data.cadd_executor)
-
-    print("All threads submitted...")
+                                  cadd_executor=ingested_data.cadd_executor,
+                                  wes=wes)
 
     # And add the resulting futures to relevant output arrays / file
     output_bcfs = []
@@ -142,8 +144,6 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                 'output_vep_idx': result['output_vep_idx'].describe()['id']}
             coordinate_csv.writerow(writer_dict)
 
-    print("All threads completed...")
-
     # Getting files back into your project directory on DNAnexus is a two-step process:
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
@@ -158,4 +158,5 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     return output
 
 
-dxpy.run()
+if __name__ == '__main__':
+    dxpy.run()

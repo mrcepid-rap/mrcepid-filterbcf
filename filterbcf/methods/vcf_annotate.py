@@ -5,7 +5,7 @@ import itertools
 from typing import TypedDict, Tuple, List
 from pathlib import Path
 
-from filterbcf.ingest_data import AdditionalAnnotation
+from filterbcf.methods.ingest_data import AdditionalAnnotation
 from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix, replace_multi_suffix
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.mrc_logger import MRCLogger
@@ -50,7 +50,7 @@ class VCFAnnotate:
         # files CADD annotations.
         annotation_names = []
         for annotation in itertools.chain(additional_annotations, [cadd_annotation]):
-            vep_tsv, annotation_name = self._add_additional_symbol_annotation(vep_tsv, annotation)
+            vep_tsv, annotation_name = self._add_additional_annotation(vep_tsv, annotation)
             annotation_names.append(annotation_name)
 
         # 5. Generating merged/final files:
@@ -284,7 +284,7 @@ class VCFAnnotate:
 
         return cadd_annotation
 
-    def _add_additional_symbol_annotation(self, input_tsv, annotation: AdditionalAnnotation) -> Tuple[Path, str]:
+    def _add_additional_annotation(self, input_tsv, annotation: AdditionalAnnotation) -> Tuple[Path, str]:
         """This method will take a tab-delimited, tabix-indexed .tsv file with a single annotation, and add it to the
         end of the provided annotations tsv while matching on gene SYMBOL.
 
@@ -314,7 +314,7 @@ class VCFAnnotate:
         # to the same region as the vcf to see if I can reduce memory requirements.
         sliced_tsv = replace_multi_suffix(annotation["file"], f'.{self.vcfprefix}.sliced.tsv')
         cmd = f'tabix --threads 4 -h /test/{annotation["file"]} ' \
-              f'"{self.chunk_chrom}:{self.chunk_start}-{self.chunk_end}" > {sliced_tsv}'
+              f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv}' # -1 due to 0-based idx
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)

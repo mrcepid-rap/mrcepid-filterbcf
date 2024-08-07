@@ -92,6 +92,13 @@
       "class": "array:file",
       "optional": true,
       "help": "List of tabix .tsv.gz files with additional annotations to add to the final bcf. See README for format."
+    },
+    {
+      "name": "wes",
+      "label": "Use filtering parameters for WES",
+      "class": "boolean",
+      "default": false,
+      "help": "Use filtering parameters for WES data."
     }
   ],
   "outputSpec": [
@@ -159,7 +166,7 @@
       }
     },
     "interpreter": "python3",
-    "file": "src/mrcepid-filterbcf.py",
+    "file": "filterbcf/mrcepid-filterbcf.py",
     "distribution": "Ubuntu",
     "release": "20.04",
     "version": "0",
