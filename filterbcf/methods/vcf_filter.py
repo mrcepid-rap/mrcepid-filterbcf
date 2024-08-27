@@ -13,22 +13,23 @@ class VCFFilter:
 
     :param vcf_path: The original vcf file to be filtered, that has ALREADY been normalised.
     :param cmd_executor: An instance of the CommandExecutor class to run commands on the docker container.
+    :param gq: Genotype quality filter to use.
     :param wes: A boolean flag to indicate if the vcf is from whole exome sequencing data.
     """
 
-    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, wes: bool = False):
+    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, gq: int, wes: bool):
 
         self._cmd_executor = cmd_executor
         self._vcf_prefix = vcf_path.stem
 
-        filter_out = self._genotype_filter(vcf_path, wes)
+        filter_out = self._genotype_filter(vcf_path, gq, wes)
         flag_out = self._set_missingness_values(filter_out)
         self.filtered_vcf = self._set_filter_flags(flag_out)
         self.filtered_idx = self._write_index(self.filtered_vcf)
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
 
-    def _genotype_filter(self, input_vcf: Path, wes: bool) -> Path:
+    def _genotype_filter(self, input_vcf: Path, gq: int, wes: bool) -> Path:
         """Do genotype level filtering using bcftools filter.
 
         BCFTools flags used in this function:
@@ -56,17 +57,17 @@ class VCFFilter:
 
         output_vcf = Path(f'{self._vcf_prefix}.filtered.bcf')
         if wes:
-            filtering_string = '"(TYPE=\'snp\' & FMT/DP >= 7 & (' \
-                               '(FMT/GT=\'RR\' & FMT/GQ >= 20) | ' \
-                               '(FMT/GT=\'RA\' & FMT/GQ >= 20 & binom(FMT/AD) > 0.001) | ' \
-                               '(FMT/GT=\'AA\'))) | ' \
-                               '(TYPE=\'indel\' & FMT/DP >= 10 & FMT/GQ >= 20)"'
+            filtering_string = f'"(TYPE=\'snp\' & FMT/DP >= 7 & (' \
+                               f'(FMT/GT=\'RR\' & FMT/GQ >= {gq}) | ' \
+                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/AD) > 0.001) | ' \
+                               f'(FMT/GT=\'AA\'))) | ' \
+                               f'(TYPE=\'indel\' & FMT/DP >= 10 & FMT/GQ >= {gq})"'
         else:
-            filtering_string = '"(TYPE=\'snp\' & sSUM(FMT/LAD) >= 7 & (' \
-                               '(FMT/GT=\'RR\' & FMT/GQ >= 10) | ' \
-                               '(FMT/GT=\'RA\' & FMT/GQ >= 10 & binom(FMT/LAD) > 0.001) | ' \
-                               '(FMT/GT=\'AA\'))) | ' \
-                               '(TYPE=\'indel\' & sSUM(FMT/LAD) >= 10 & FMT/GQ >= 10)"'
+            filtering_string = f'"(TYPE=\'snp\' & sSUM(FMT/LAD) >= 7 & (' \
+                               f'(FMT/GT=\'RR\' & FMT/GQ >= {gq}) | ' \
+                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/LAD) > 0.001) | ' \
+                               f'(FMT/GT=\'AA\' & FMT/GQ >= {gq}))) | ' \
+                               f'(TYPE=\'indel\' & sSUM(FMT/LAD) >= 10 & FMT/GQ >= {gq})"'
 
         cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 4 -S . -i {filtering_string} /test/{input_vcf}'
 

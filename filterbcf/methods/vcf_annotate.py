@@ -427,13 +427,15 @@ class VCFAnnotate:
                 if current_rec_name != held_rec_name: # If ID is not the same, write currently held record and reset (steps 3 - 4)
                     if held_rec_name != None: # Obviously, don't print if going through the first rec since there is no stored INFO yet
                         # Write the record with the most severe consequence (step 3)
+                        held_rec['ID'] = held_rec_name  # Set the ID to the unique record ID
                         held_rec = self._final_process_record(held_rec, held_severity_score)
                         writer_csv.writerow(held_rec)
 
                     # Reset to a new record (step 4)
                     held_rec_name = current_rec_name
-                    held_rec = rec # Make sure at least one record makes it through
-                    # This function decides how "severe" a given CSQ annotation for a record is. See the function for more details
+                    held_rec = rec  # Make sure at least one record makes it through
+                    # This function decides how "severe" a given CSQ annotation for a record is. See the function for
+                    # more details
                     held_severity_score = self._define_score(held_rec['CSQ'])
                 else:
                     # Calculate severity of this record

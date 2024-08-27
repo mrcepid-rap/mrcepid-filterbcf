@@ -91,7 +91,15 @@
       "label": "",
       "class": "array:file",
       "optional": true,
+      "default": null,
       "help": "List of tabix .tsv.gz files with additional annotations to add to the final bcf. See README for format."
+    },
+    {
+      "name": "gq",
+      "label": "Minimum genotype quality",
+      "class": "int",
+      "default": 20,
+      "help": "Minimum genotype quality to keep a genotype. Genotypes that fail this filter are set to './.'."
     },
     {
       "name": "wes",
