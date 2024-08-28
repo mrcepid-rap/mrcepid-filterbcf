@@ -98,15 +98,15 @@
       "name": "gq",
       "label": "Minimum genotype quality",
       "class": "int",
-      "default": 20,
-      "help": "Minimum genotype quality to keep a genotype. Genotypes that fail this filter are set to './.'."
+      "default": 10,
+      "help": "Minimum genotype quality to keep a genotype. Genotypes that fail this filter are set to './.' [10]."
     },
     {
       "name": "wes",
       "label": "Use filtering parameters for WES",
       "class": "boolean",
       "default": false,
-      "help": "Use filtering parameters for WES data."
+      "help": "Use filtering parameters for WES data [false]."
     }
   ],
   "outputSpec": [
