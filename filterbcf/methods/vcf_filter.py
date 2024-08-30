@@ -95,7 +95,7 @@ class VCFFilter:
         # Do not change the command line order here. This plugin has a very specific command-line.
         output_vcf = Path(f'{self._vcf_prefix}.tagged.bcf')
         cmd = f'bcftools +fill-tags /test/{input_vcf} -Ob ' \
-              f'-o /test/{output_vcf} -- -t F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")'
+              f'-o /test/{output_vcf} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
         self._cmd_executor.run_cmd_on_docker(cmd)
         input_vcf.unlink()
 
