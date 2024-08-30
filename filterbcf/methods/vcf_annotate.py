@@ -353,7 +353,7 @@ class VCFAnnotate:
         # Set field names that we need to extract from the annotations file
         to_extract = ['CHROM', 'POS', 'REF', 'ALT', 'ID', 'FILTER', 'INFO/AF', 'F_MISSING', 'AN', 'AC', 'MA',
                       'MANE_SELECT', 'Feature', 'Gene', 'BIOTYPE', 'CANONICAL', 'SYMBOL', 'Consequence', 'SIFT',
-                      'PolyPhen', 'LoF', 'Amino_acids', 'Protein_position']
+                      'PolyPhen', 'LoF', 'Amino_acids', 'Protein_position', 'GTM', 'GT0', 'GT1', 'GT2']
         # Have to do this b/c '%' is req'd and join won't append to the front of the first element
         to_extract_string = '\\t'.join([f'%{x}' for x in to_extract])
 
@@ -383,7 +383,7 @@ class VCFAnnotate:
         # Reader:
         reader_header = ['CHROM', 'POS', 'REF', 'ALT', 'ID', 'FILTER', 'AF', 'F_MISSING', 'AN', 'AC', 'MA',
                          'MANE', 'ENST', 'ENSG', 'BIOTYPE', 'CANONICAL', 'SYMBOL', 'CSQ', 'SIFT',
-                         'POLYPHEN', 'LOFTEE', 'AA', 'AApos']
+                         'POLYPHEN', 'LOFTEE', 'AA', 'AApos', 'GTM', 'GT0', 'GT1', 'GT2']
         reader_header.extend(annotation_names)
 
         # Writer:
