@@ -24,7 +24,8 @@ class VCFFilter:
 
         filter_out = self._genotype_filter(vcf_path, gq, wes)
         flag_out = self._set_missingness_values(filter_out)
-        self.filtered_vcf = self._set_filter_flags(flag_out)
+        id_out = self._set_id(flag_out)
+        self.filtered_vcf = self._set_filter_flags(id_out)
         self.filtered_idx = self._write_index(self.filtered_vcf)
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
@@ -96,6 +97,23 @@ class VCFFilter:
         output_vcf = Path(f'{self._vcf_prefix}.tagged.bcf')
         cmd = f'bcftools +fill-tags /test/{input_vcf} -Ob ' \
               f'-o /test/{output_vcf} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
+        self._cmd_executor.run_cmd_on_docker(cmd)
+        input_vcf.unlink()
+
+        return output_vcf
+
+    def _set_id(self, input_vcf: Path) -> Path:
+        """Set ID of all variants to a predictable format for downstream use.
+
+        Method is a wrapper for bcftools annotate -I. Sets all IDs to 'CHROM_POS_REF_ALT'
+
+        :param input_vcf: Path to the input vcf file. This file will be deleted on completion of this method.
+        :return: Path to a VCF with set ID
+        """
+        output_vcf = Path(f'{self._vcf_prefix}.id_fixed.bcf')
+        cmd = f'bcftools annotate -I "%CHROM\_%POS\_%REF\_%ALT" -Ob --threads 4 ' \
+              f'-o /test/{output_vcf} ' \
+              f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
         input_vcf.unlink()
 

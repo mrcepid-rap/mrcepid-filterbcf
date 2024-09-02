@@ -27,8 +27,7 @@ class VCFAnnotate:
         # 1. Generate sites files that can be run through the various annotation parts
         sites_vcf, cadd_vcf = self._generate_sites_files(filtered_vcf)
 
-        # 1a. Get information about this VCF from the sites file since it is much quicker:
-        # chromosome, start, end
+        # 1a. Get information about this VCF from cadd_vcf since it is much quicker than parsing with bcftools:
         (self.chunk_chrom, self.chunk_start, self.chunk_end) = self._get_bcf_information(cadd_vcf)
 
         # 2. This does the initial VEP run
@@ -427,7 +426,6 @@ class VCFAnnotate:
                 if current_rec_name != held_rec_name: # If ID is not the same, write currently held record and reset (steps 3 - 4)
                     if held_rec_name != None: # Obviously, don't print if going through the first rec since there is no stored INFO yet
                         # Write the record with the most severe consequence (step 3)
-                        held_rec['ID'] = held_rec_name  # Set the ID to the unique record ID
                         held_rec = self._final_process_record(held_rec, held_severity_score)
                         writer_csv.writerow(held_rec)
 
@@ -473,7 +471,6 @@ class VCFAnnotate:
                                     held_severity_score = self._define_score(held_rec['CSQ'])
 
             # And print the last record since it cannot be compared to the next record:
-            held_rec['ID'] = held_rec_name  # Set the ID to the unique record ID
             held_rec = self._final_process_record(held_rec, held_severity_score)
             writer_csv.writerow(held_rec)
 
