@@ -473,6 +473,7 @@ class VCFAnnotate:
                                     held_severity_score = self._define_score(held_rec['CSQ'])
 
             # And print the last record since it cannot be compared to the next record:
+            held_rec['ID'] = held_rec_name  # Set the ID to the unique record ID
             held_rec = self._final_process_record(held_rec, held_severity_score)
             writer_csv.writerow(held_rec)
 
