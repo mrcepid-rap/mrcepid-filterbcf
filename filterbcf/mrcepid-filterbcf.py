@@ -16,11 +16,11 @@ from typing import TypedDict, List
 from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
+from general_utilities.mrc_logger import MRCLogger
 
 from filterbcf.methods.ingest_data import IngestData, AdditionalAnnotation
 from filterbcf.methods.vcf_filter import VCFFilter
 from filterbcf.methods.vcf_annotate import VCFAnnotate
-from general_utilities.mrc_logger import MRCLogger
 
 LOGGER = MRCLogger().get_logger()
 
