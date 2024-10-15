@@ -110,7 +110,7 @@ class VCFAnnotate:
     # Prepares a record for final printing by adding some additional pieces of information and
     # finalising the names of some columns for easy printing.
     @staticmethod
-    def _final_process_record(rec: dict, severity: ConsequenceSeverity) -> dict:
+    def _final_process_record(rec: dict, severity: ConsequenceSeverity, annotation_names: List[str]) -> dict:
 
         # Rename some columns for printing purposes
         rec['parsed_csq'] = severity['type']
@@ -155,6 +155,10 @@ class VCFAnnotate:
             rec['major_allele'] = rec['ALT']
             rec['MAF'] = '%s' % (1 - float(rec['AF']))
             rec['MAC'] = '%s' % (int(rec['AN']) - int(rec['AC']))
+
+        # Just make sure that additional annotations are set to NA rather than '.' for downstream compatability:
+        for name in annotation_names:
+            rec[name] = rec[name] if rec[name] != '.' else 'NA'
 
         return rec
 
@@ -371,7 +375,7 @@ class VCFAnnotate:
 
         :param raw_vep: The raw VEP output file directly from bcftools split-vep
         :param annotation_names: A list of additional annotation names to append to the end of our required annotations
-        :return:
+        :return: A Tuple containing the path to the gzipped and tabixed VEP output file and index file
         """
 
         # First we need to set the I/O headers for this process. This is for two reasons:
@@ -426,7 +430,7 @@ class VCFAnnotate:
                 if current_rec_name != held_rec_name: # If ID is not the same, write currently held record and reset (steps 3 - 4)
                     if held_rec_name != None: # Obviously, don't print if going through the first rec since there is no stored INFO yet
                         # Write the record with the most severe consequence (step 3)
-                        held_rec = self._final_process_record(held_rec, held_severity_score)
+                        held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
                         writer_csv.writerow(held_rec)
 
                     # Reset to a new record (step 4)
@@ -471,7 +475,7 @@ class VCFAnnotate:
                                     held_severity_score = self._define_score(held_rec['CSQ'])
 
             # And print the last record since it cannot be compared to the next record:
-            held_rec = self._final_process_record(held_rec, held_severity_score)
+            held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
             writer_csv.writerow(held_rec)
 
         vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2)
