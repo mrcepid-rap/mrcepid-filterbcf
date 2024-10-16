@@ -323,7 +323,12 @@ class VCFAnnotate:
         sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)
 
         if annotation['symbol_mode']:
-            match_string = f'REF,ALT,{annotation["symbol_mode"]}:REF,ALT,{annotation["symbol_mode"]}'
+            # VEP uses 'Feature' to denote the gene transcript, but we need to match on ENST
+            if annotation['symbol_mode'] == 'ENST':
+                target = 'Feature'
+            else:
+                target = 'SYMBOL'
+            match_string = f'REF,ALT,{annotation["symbol_mode"]}:REF,ALT,{target}'
         else:
             match_string = 'REF,ALT:REF,ALT'
 
