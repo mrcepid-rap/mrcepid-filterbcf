@@ -3,7 +3,7 @@ import csv
 import dxpy
 import gzip
 from pathlib import Path
-from typing import List, TypedDict, Tuple
+from typing import List, TypedDict, Tuple, Optional
 
 from general_utilities.association_resources import find_index, download_dxfile_by_name
 from general_utilities.job_management.command_executor import build_default_command_executor, DockerMount, \
@@ -20,7 +20,7 @@ class AdditionalAnnotation(TypedDict):
     index: Path
     header_file: Path
     annotation_name: str
-    symbol_mode: bool
+    symbol_mode: Optional[str]
 
 
 class IngestData:
@@ -291,13 +291,15 @@ class IngestData:
                 annotation_name = file_header[4]
 
                 # Check if we have an SYMBOL value for each score
-                symbol_mode = False
+                symbol_mode = None
                 if len(file_header) == 6:
                     if file_header[5] == 'SYMBOL':
-                        symbol_mode = True
+                        symbol_mode = 'SYMBOL'
+                    elif file_header[5] == 'ENST':
+                        symbol_mode = 'ENST'
                     else:
                         raise dxpy.AppError(f'Sixth column included in annotations file – {annotation_path} – but it '
-                                            f'is NOT a SYMBOL column. Please check the file.')
+                                            f'is NOT a SYMBOL / ENST column. Please check the file.')
 
                 # Attempt to infer the datatype of the annotation in the annotation file:
                 values = []

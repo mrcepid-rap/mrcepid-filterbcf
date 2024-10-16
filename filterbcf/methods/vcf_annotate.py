@@ -279,7 +279,7 @@ class VCFAnnotate:
                                                  'file': cadd_gz,
                                                  'index': cadd_idx,
                                                  'header_file': Path('cadd.header.txt'),
-                                                 'symbol_mode': False}
+                                                 'symbol_mode': None}
 
         # Remove CADD intermediate files to save space
         cadd_vcf.unlink()
@@ -323,7 +323,7 @@ class VCFAnnotate:
         sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)
 
         if annotation['symbol_mode']:
-            match_string = 'REF,ALT,SYMBOL:REF,ALT,SYMBOL'
+            match_string = f'REF,ALT,{annotation["symbol_mode"]}:REF,ALT,{annotation["symbol_mode"]}'
         else:
             match_string = 'REF,ALT:REF,ALT'
 
