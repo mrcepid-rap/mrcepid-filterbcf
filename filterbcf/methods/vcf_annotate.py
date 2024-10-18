@@ -113,19 +113,19 @@ class VCFAnnotate:
     def _final_process_record(rec: dict, severity: ConsequenceSeverity, annotation_names: List[str]) -> dict:
 
         # Rename some columns for printing purposes
-        rec['parsed_csq'] = severity['type']
+        rec['PARSED_CSQ'] = severity['type']
 
         # I use the MA flag set in 'splitvcf' to determine if a variant is multiallelic or not
         if rec['MA'] == '.':
-            rec['is_multiallelic'] = False
+            rec['IS_MULTIALLELIC'] = False
         else:
-            rec['is_multiallelic'] = True
+            rec['IS_MULTIALLELIC'] = True
 
         # Records who do not have equal REF/ALT length are assigned as InDels
         if len(rec['REF']) != len(rec['ALT']):
-            rec['is_indel'] = True
+            rec['IS_INDEL'] = True
         else:
-            rec['is_indel'] = False
+            rec['IS_INDEL'] = False
 
         # This corrects an issue with sites with 100% missingness that BCFtools doesn't handle correctly
         if rec['AF'] == '.':
@@ -146,13 +146,13 @@ class VCFAnnotate:
 
         # Setting additional tags requested by GWAS-y people
         if float(rec['AF']) < 0.5:
-            rec['minor_allele'] = rec['ALT']
-            rec['major_allele'] = rec['REF']
+            rec['MINOR_ALLELE'] = rec['ALT']
+            rec['MAJOR_ALLELE'] = rec['REF']
             rec['MAF'] = '%s' % rec['AF']
             rec['MAC'] = '%s' % rec['AC']
         else:
-            rec['minor_allele'] = rec['REF']
-            rec['major_allele'] = rec['ALT']
+            rec['MINOR_ALLELE'] = rec['REF']
+            rec['MAJOR_ALLELE'] = rec['ALT']
             rec['MAF'] = '%s' % (1 - float(rec['AF']))
             rec['MAC'] = '%s' % (int(rec['AN']) - int(rec['AC']))
 
@@ -396,7 +396,7 @@ class VCFAnnotate:
 
         # Writer:
         writer_header = reader_header.copy()
-        writer_header.extend(['parsed_csq', 'is_multiallelic', 'is_indel', 'minor_allele', 'major_allele',
+        writer_header.extend(['PARSED_CSQ', 'IS_MULTIALLELIC', 'IS_INDEL', 'MINOR_ALLELE', 'MAJOR_ALLELE',
                               'MAF', 'MAC'])
 
         # Define files:
