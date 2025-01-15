@@ -45,6 +45,10 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v2.0.0
+  * Applet has gone through a major refactor to support WGS analysis. Do not expect backwards compatability with previous versions.
+  * 
+
 * v1.0.1
   * Added support for .bcf or .vcf.gz input to this applet
 
