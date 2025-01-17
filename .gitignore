@@ -1,1 +1,7 @@
 /test/
+/test/poetry.lock
+dx_run.log
+poetry.lock
+.idea/
+filterbcf/__pycache__/
+filterbcf/methods/__pycache__/

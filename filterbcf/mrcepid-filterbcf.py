@@ -39,13 +39,13 @@ class ProcessedReturn(TypedDict):
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
-                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor, gq: int, wes: bool) -> ProcessedReturn:
-
+                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor, gq: int, wes: bool,
+                testing: bool) -> ProcessedReturn:
     # Download the VCF file chunk to the instance
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
 
     # 1. Do normalisation and filtering
-    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes)
+    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes, testing)
 
     # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
     # We know that when the original .tar.gz files are gone it is safe proceed; deleting these files is the final step
@@ -76,7 +76,6 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
 def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_reference_index: dict,
          vep_cache: dict, loftee_libraries: dict, cadd_annotations: dict, precomputed_cadd_snvs: dict,
          precomputed_cadd_indels: dict, additional_annotations: List[dict], gq, wes):
-
     # Build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads
     # 2 threads for downloading (1 each for CADD and VEP)

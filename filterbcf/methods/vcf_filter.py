@@ -17,10 +17,12 @@ class VCFFilter:
     :param wes: A boolean flag to indicate if the vcf is from whole exome sequencing data.
     """
 
-    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, gq: int, wes: bool):
+    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, gq: int, wes: bool, testing: bool = False):
 
         self._cmd_executor = cmd_executor
         self._vcf_prefix = vcf_path.stem
+
+        self._files_to_close = []
 
         filter_out = self._genotype_filter(vcf_path, gq, wes)
         flag_out = self._set_missingness_values(filter_out)
@@ -29,6 +31,17 @@ class VCFFilter:
         self.filtered_idx = self._write_index(self.filtered_vcf)
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
+
+        self.close(testing)
+
+    def close(self, testing):
+        """
+        If running the applet, close the class and delete any temporary files that were created
+        If running a test, do nothing (the temporary directory will be deleted)
+        """
+        if testing is False:
+            for file in self._files_to_close:
+                file.unlink()
 
     def _genotype_filter(self, input_vcf: Path, gq: int, wes: bool) -> Path:
         """Do genotype level filtering using bcftools filter.
@@ -74,7 +87,7 @@ class VCFFilter:
 
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        input_vcf.unlink()  # Purge the original file to save HDD space
+        self._files_to_close.append(input_vcf) # Stage file to be deleted on close
         return output_vcf
 
     def _set_missingness_values(self, input_vcf: Path) -> Path:
@@ -98,8 +111,7 @@ class VCFFilter:
         cmd = f'bcftools +fill-tags /test/{input_vcf} -Ob ' \
               f'-o /test/{output_vcf} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
         self._cmd_executor.run_cmd_on_docker(cmd)
-        input_vcf.unlink()
-
+        self._files_to_close.append(input_vcf)  # Stage file to be deleted on close
         return output_vcf
 
     def _set_id(self, input_vcf: Path) -> Path:
@@ -115,8 +127,7 @@ class VCFFilter:
               f'-o /test/{output_vcf} ' \
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
-        input_vcf.unlink()
-
+        self._files_to_close.append(input_vcf)  # Stage file to be deleted on close
         return output_vcf
 
     def _set_filter_flags(self, input_vcf: Path) -> Path:
@@ -137,8 +148,7 @@ class VCFFilter:
               f'-o /test/{output_vcf} ' \
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
-        input_vcf.unlink()
-
+        self._files_to_close.append(input_vcf)  # Stage file to be deleted on close
         return output_vcf
 
     def _write_index(self, input_vcf: Path) -> Path:
