@@ -1,4 +1,5 @@
 from pathlib import Path
+
 from general_utilities.job_management.command_executor import CommandExecutor
 
 
@@ -87,7 +88,7 @@ class VCFFilter:
 
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        self._files_to_close.append(input_vcf) # Stage file to be deleted on close
+        self._files_to_close.append(input_vcf)  # Stage file to be deleted on close
         return output_vcf
 
     def _set_missingness_values(self, input_vcf: Path) -> Path:

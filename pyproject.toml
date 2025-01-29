@@ -1,12 +1,12 @@
 [build-system]
-requires = [ "poetry-core",]
+requires = ["poetry-core", ]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "filterbcf"
 version = "2.0.0"
 description = ""
-authors = [ "Eugene Gardner <eugene.gardner@mrc-epid.cam.ac.uk>",]
+authors = ["Eugene Gardner <eugene.gardner@mrc-epid.cam.ac.uk>", ]
 readme = "Readme.md"
 repository = "https://github.com/mrcepid-rap/mrcepid-filterbcf"
 #licence = "MIT"
@@ -14,5 +14,5 @@ repository = "https://github.com/mrcepid-rap/mrcepid-filterbcf"
 [tool.poetry.dependencies]
 python = "~3.8"
 dxpy = "0.346.0"
-general-utilities = {git = "https://github.com/mrcepid-rap/general_utilities.git", rev = "v1.5.1"}
+general-utilities = { git = "https://github.com/mrcepid-rap/general_utilities.git", rev = "v1.5.1" }
 pysam = "^0.22.1"

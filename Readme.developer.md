@@ -8,6 +8,16 @@ for developers or advanced users, for example:
 * How to report bugs or contribute to development
 -->
 
+## Testing
+
+Note for development: the test data to run unit tests for this applet are living on GCloud.
+If you would like to gain access, please contact Eugene Gardner.
+If you already have access to GCloud, run this command in the `/test_data/` directory:
+
+```
+gcloud storage rsync gs://iiuk-human-genetics/Syris/test_data/filterbcf .
+```
+
 ## Running this app with additional computational resources
 
 This app has the following entry points:

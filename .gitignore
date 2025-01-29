@@ -5,3 +5,4 @@ poetry.lock
 .idea/
 filterbcf/__pycache__/
 filterbcf/methods/__pycache__/
+.DS_Store

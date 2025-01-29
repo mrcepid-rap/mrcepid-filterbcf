@@ -1,10 +1,10 @@
-import pytest
-
 from pathlib import Path
 from typing import Tuple
+
+import pytest
+from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
 from pysam import VariantFile
 
-from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
 from filterbcf.methods.vcf_filter import VCFFilter
 
 test_data_dir = Path(__file__).parent / 'test_data'
@@ -16,7 +16,8 @@ EXPECTED_VCF_VALUES = [{'final': 845, 'missing': 6, 'original': 835,
                        {'final': 417, 'missing': 32, 'original': 410,
                         'vcf': test_data_dir / 'test_input2.vcf.gz',
                         'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                        'fail': 0}]
+                        'fail': 0},
+                       ]
 
 for vcf_data in EXPECTED_VCF_VALUES:
     assert vcf_data['vcf'].exists()
@@ -59,6 +60,13 @@ def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
 def test_genotype_filter(tmp_data_dir, sites_suffix, vcf_info):
+    """
+    Test for the genotype filter of the VCF files
+
+    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :return: output
+    """
     test_mount = DockerMount(tmp_data_dir, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
@@ -82,6 +90,13 @@ def test_genotype_filter(tmp_data_dir, sites_suffix, vcf_info):
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
 def test_set_missingness_values(tmp_data_dir, sites_suffix, vcf_info):
+    """
+    Create and set missingness values in the VCF file
+
+    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :return: output
+    """
     test_mount = DockerMount(tmp_data_dir, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
@@ -107,6 +122,13 @@ def test_set_missingness_values(tmp_data_dir, sites_suffix, vcf_info):
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
 def test_set_id(tmp_data_dir, sites_suffix, vcf_info):
+    """
+    Ensure variant IDs are properly formatted
+
+    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :return: output
+    """
     test_mount = DockerMount(tmp_data_dir, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
@@ -130,6 +152,13 @@ def test_set_id(tmp_data_dir, sites_suffix, vcf_info):
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
 def test_set_filter_flags(tmp_data_dir, sites_suffix, vcf_info):
+    """
+    Ensure the filter flags are working correctly
+
+    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :return: output
+    """
     test_mount = DockerMount(tmp_data_dir, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
@@ -160,6 +189,13 @@ def test_set_filter_flags(tmp_data_dir, sites_suffix, vcf_info):
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
 def test_write_index(tmp_data_dir, sites_suffix, vcf_info):
+    """
+    Ensure the index file gets created
+
+    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :return: output
+    """
     test_mount = DockerMount(tmp_data_dir, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])

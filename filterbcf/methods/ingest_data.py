@@ -1,10 +1,9 @@
 import csv
-
-import dxpy
 import gzip
 from pathlib import Path
 from typing import List, TypedDict, Tuple, Optional
 
+import dxpy
 from general_utilities.association_resources import find_index, download_dxfile_by_name
 from general_utilities.job_management.command_executor import build_default_command_executor, DockerMount, \
     CommandExecutor
@@ -285,7 +284,9 @@ class IngestData:
             # 3 = ALT
             # 4 = Annotation itself
             # 5 = Optional SYMBOL tag for gene-specific annotation
-            if (file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT'] or file_header[:4] == ['#CHROM', 'POS', 'REF', 'ALT']) and len(file_header) in range(5, 7):
+            if (file_header[:4] == ['CHROM', 'POS', 'REF', 'ALT'] or file_header[:4] == ['#CHROM', 'POS', 'REF',
+                                                                                         'ALT']) and len(
+                    file_header) in range(5, 7):
 
                 # Set the annotation name from the column name
                 annotation_name = file_header[4]
