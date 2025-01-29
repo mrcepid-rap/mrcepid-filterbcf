@@ -1,4 +1,3 @@
-/test/
 /test/poetry.lock
 dx_run.log
 poetry.lock
@@ -6,3 +5,5 @@ poetry.lock
 filterbcf/__pycache__/
 filterbcf/methods/__pycache__/
 .DS_Store
+test/__pycache__/
+test/test_data/reference.fasta
