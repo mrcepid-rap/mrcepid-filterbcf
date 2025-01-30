@@ -1,1 +1,3 @@
 /test/
+/.python-version
+/poetry.lock

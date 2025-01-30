@@ -16,7 +16,7 @@ https://documentation.dnanexus.com/.
   * [Potential Caveats to this Approach](#potential-caveats-to-this-approach)
   * [1. Split multiallelic variants and normalise all variants](#1-split-multiallelic-variants-and-normalise-all-variants)
   * [2. Perform variant filtering](#2-perform-variant-filtering)
-  * [3. VEP, gnomAD, and CADD annotation](#3-vep--gnomad--and-cadd-annotation)
+  * [3. VEP and additional annotation](#3-vep-and-additional-annotations)
   * [4. Parsing VEP consequences](#4-parsing-vep-consequences)
 - [Running on DNANexus](#running-on-dnanexus)
   * [Inputs](#inputs)
@@ -95,8 +95,6 @@ are:
     * [REVEL](https://github.com/Ensembl/VEP_plugins/blob/release/104/REVEL.pm)
 * [plink1.9](https://www.cog-genomics.org/plink2)
 * [plink2](https://www.cog-genomics.org/plink/2.0/)
-* [cadd](https://cadd.gs.washington.edu/)
-    * For more details on how to install CADD, please see the [CADD github repo](https://github.com/kircherlab/CADD-scripts/)
 
 This list is not exhaustive and does not include dependencies of dependencies and software needed
 to acquire other resources (e.g. wget). See the referenced Dockerfile for more information.
@@ -163,14 +161,6 @@ instructions for obtaining these files is listed below each bullet point:
     tabix -f -s 1 -b 3 -e 3 new_tabbed_revel_grch38.tsv.gz
     dx upload new_tabbed_revel_grch38.tsv.gz
     ```
-
-6. CADD resource files downloaded from the [CADD Downloads website](https://cadd.gs.washington.edu/download). **NOTE**: These files are VERY large:
-
-       CADD Annotations: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/annotationsGRCh38_v1.6.tar.gz
-       Precomputed SNVs: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/whole_genome_SNVs.tsv.gz
-       Precomputed SNVs index: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/whole_genome_SNVs.tsv.gz.tbi
-       Precomputed InDels: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/gnomad.genomes.r3.0.indel.tsv.gz
-       Precomputed InDels index: https://kircherlab.bihealth.org/download/CADD/v1.6/GRCh38/gnomad.genomes.r3.0.indel.tsv.gz.tbi
 
 ## Methodology
 
@@ -265,15 +255,14 @@ bcftools filter -i 'F_MISSING<=0.50 & AC!=0' -s 'FAIL' -Oz -o \
           variants.norm.filtered.tagged.vcf.gz
 ```
 
-### 3. VEP, gnomAD, and CADD annotation
+### 3. VEP and Additional Annotations
 
 This step is relatively straightforward from a "running VEP" standpoint. Please see VEP documentation on [input options](https://www.ensembl.org/info/docs/tools/vep/script/vep_options.html#basic)
 for more information on what each flag here means. VEP annotation runs in three separate steps:
 
 1. Conversion of the filtered VCF into a sites vcf to speedup VEP annotation
 2. Running of VEP
-3. Running of CADD
-4. Using `bcftools annotate` to add gnomAD MAF and CADD score information for all alleles
+3. Using `bcftools annotate` to add additional annotations
 
 ```shell
 # Generate a sites file from our filtered VCF
@@ -288,9 +277,6 @@ perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxE
           --dir_plugins ensembl-vep/cache/Plugins/ \
           --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw \
           --plugin REVEL,revel_files/new_tabbed_revel_grch38.tsv.gz
-
-# Run CADD
-CADD-scripts/CADD.sh -g GRCh38 -c 2 -o variants.cadd.tsv.gz variants.vcf
           
 # gnomAD MAF information per-allele is added:
 bcftools annotate -a gnomad_files/gnomad.tsv.gz -c CHROM,POS,REF,ALT,-,gnomAD_MAF \
@@ -348,7 +334,6 @@ Where the two annotations being compared both fulfill a given criteria, the code
 | no_score                          | 22    | ERROR      |
 
 The end-result of this iterative process is each variant in the VCF file gets a collection of INFO fields that contain annotations.
-For information on these annotations, please see the README for the next applet in this pipeline [mrcepid-annotatecadd](https://github.com/mrcepid-rap/mrcepid-annotatecadd).
 
 5. Which consequence appears first in the file?
 
@@ -412,15 +397,12 @@ sensible defaults for these files and only change them if running from a differe
 | loftee_libraries        | Pointer to the tar.gz file of loftee databases on DNA nexus. See the [loftee github page](https://github.com/konradjk/loftee/tree/grch38) for more information.                                                                                                  |
 | gnomad_maf_db           | Pointer to a precompiled .tsv format file of gnomAD AFs. Calculated from gnomAD v2 vcf files for Non-Finish European individuals. A corresponding `.tbi` index MUST be located at the same location as this file!                                                |
 | revel_db                | Precompiled REVEL score database. See the [REVEL](https://sites.google.com/site/revelgenomics/) website for more information. A corresponding `.tbi` index MUST be located at the same location as this file!                                                    |
-| cadd_annotations        | Pointer to annotations used by CADD to compute variant deleteriousness scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information.                                                                                        |
-| precomputed_cadd_snvs   | `tsv.gz` file of all possible SNVs in the human genome with pre-computed CADD scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information. A corresponding `.tbi` index MUST be located at the same location as this file! |
-| precomputed_cadd_indels | `tsv.gz` file of all gnomAD3.0 InDels with pre-computed CADD scores. See the [CADD downloads website](https://cadd.bihealth.org/download) for more information. A corresponding `.tbi` index MUST be located at the same location as this file!                  |
 
 ### Outputs
 
 | output             | description                                                                      |
 |--------------------|----------------------------------------------------------------------------------|
-| output_bcfs        | Output VCF(s) with filtered genotypes and sites, annotated with CADD             |
+| output_bcfs        | Output VCF(s) with filtered genotypes and sites                                  |
 | output_bcf_idxs    | .csi index files for `output_vcfs`                                               |
 | output_veps        | tabix indexed TSV file with all variants from `outputvcfs` with annotations      |
 | output_vep_idxs    | .tbi index files for `output_veps`                                               |
@@ -451,7 +433,6 @@ added during the following `makebgen` step):
 | SYMBOL      | 16                    | object               | NA                                                                                                                | [HGNC Gene](https://www.genenames.org/) symbol                                                                                                                                                              | 
 | CSQ         | 17                    | object               | All possible values in [this table](https://m.ensembl.org/info/genome/variation/prediction/predicted_data.html).  | VEP annotated [CSQ](https://m.ensembl.org/info/genome/variation/prediction/predicted_data.html)                                                                                                             |
 | gnomAD_AF   | 18                    | float64              | NA                                                                                                                | Non-Finnish European allele frequency of this variant in gnomAD exomes. 0 if not in gnomAD                                                                                                                  |
-| CADD        | 19                    | float64              | NA                                                                                                                | [CADDv1.6](https://cadd.gs.washington.edu/) phred score                                                                                                                                                     |
 | REVEL       | 20                    | float64              | NA                                                                                                                | [REVEL](https://sites.google.com/site/revelgenomics/) score for this variant if CSQ is "missense", else nan                                                                                                 |
 | SIFT        | 21                    | object               | NA                                                                                                                | [SIFT](https://sift.bii.a-star.edu.sg/) score for this variant if CSQ is "missense", else NA                                                                                                                |
 | POLYPHEN    | 22                    | object               | NA                                                                                                                | [POLYPHEN](http://genetics.bwh.harvard.edu/pph2/) score for this variant if CSQ is "missense", else NA                                                                                                      |

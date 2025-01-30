@@ -14,21 +14,21 @@ from general_utilities.mrc_logger import MRCLogger
 class VCFAnnotate:
 
     def __init__(self, vcf_path: Path, filtered_vcf: Path, additional_annotations: List[AdditionalAnnotation],
-                 cmd_executor: CommandExecutor, cadd_executor: CommandExecutor):
+                 cmd_executor: CommandExecutor):
 
         self._logger = MRCLogger(__name__).get_logger()
         self._cmd_executor = cmd_executor
-        self._cadd_executor = cadd_executor
 
         # Set the prefix for the VCF file. This allows us to just use the prefix for all file names throughout this
         # class
         self.vcfprefix = vcf_path.stem
 
         # 1. Generate sites files that can be run through the various annotation parts
-        sites_vcf, cadd_vcf = self._generate_sites_files(filtered_vcf)
+        sites_vcf = self._generate_sites_file(filtered_vcf)
 
-        # 1a. Get information about this VCF from cadd_vcf since it is much quicker than parsing with bcftools:
-        (self.chunk_chrom, self.chunk_start, self.chunk_end) = self._get_bcf_information(cadd_vcf)
+        # 1a. Get information about this VCF from the VEP sites file since it is much quicker than parsing the full VCF
+        # with bcftools:
+        (self.chunk_chrom, self.chunk_start, self.chunk_end) = self._get_bcf_information(sites_vcf)
 
         # 2. This does the initial VEP run
         annotated_vcf = self._run_vep(sites_vcf)
@@ -37,18 +37,10 @@ class VCFAnnotate:
         vep_tsv = self._generate_annotations_tsv(annotated_vcf)
 
         # 4. Add annotations that need to be done separately from VEP (e.g., gnomAD)
-        # 4a. Run CADD and add it to the additional_annotation List to make appending to the VCF simple
-        # Note that I do CADD separate as the 'additional_annotations' list is a global variable, but CADD is
-        # specific to this VCF. Thus, appending CADD to 'additional_annotations' would be a bad idea.
-        cadd_annotation = self._run_cadd(cadd_vcf)
-
-        # 4b. Add additional annotations
-        # Note that 'vep_tsv' changes each time we add an annotation, but the final file should be the same. I
-        # use itertools here because I don't want to append the local cadd_annotation to the global
-        # additional_annotations. Doing so would result in ALL vcfs being processed in this applet seeing other VCF
-        # files CADD annotations.
+        # Note that 'vep_tsv' changes each time we add an annotation, but the final file should be the same. This was
+        # done for simplicity and does not represent a 'vep_tsv' per se.
         annotation_names = []
-        for annotation in itertools.chain(additional_annotations, [cadd_annotation]):
+        for annotation in additional_annotations:
             vep_tsv, annotation_name = self._add_additional_annotation(vep_tsv, annotation)
             annotation_names.append(annotation_name)
 
@@ -162,16 +154,11 @@ class VCFAnnotate:
 
         return rec
 
-    def _generate_sites_files(self, input_vcf: Path) -> Tuple[Path, Path]:
-        """This function generates sites files for both VEP and CADD, which require slightly different formats.
-
-        This function proceeds in 2 steps:
-
-        1. Generate a VCF file without genotypes for VEP
-        2. Generate a TSV file that is in the proper format for CADD and strip the 'chr' prefix from variants
+    def _generate_sites_file(self, input_vcf: Path) -> Path:
+        """This function generates sites files for VEP using bcftools view -G.
 
         :param input_vcf: The final filtered VCF from VCFFilter
-        :return: None
+        :return: Path to the sites file
         """
 
         # Generate a file without genotypes for VEP
@@ -183,34 +170,28 @@ class VCFAnnotate:
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        # Generate a sites file that is in the correct format for CADD from the above
-        output_vcf = Path(f'{self.vcfprefix}.sites.cadd.vcf')
-        cmd = f'bcftools query -f "%CHROM\\t%POS\\t%ID\\t%REF\\t%ALT\\n" ' \
-              f'-o /test/{output_vcf} ' \
-              f'/test/{output_sites}'
-        self._cmd_executor.run_cmd_on_docker(cmd)
-
-        # CADD doesn't like the 'chr' prefix..., so remove it!
-        cmd = f'sed -i \'s_chr__\' {output_vcf}'
-        self._cmd_executor.run_cmd(cmd)
-
-        return output_sites, output_vcf
+        return output_sites
 
     @staticmethod
     def _get_bcf_information(input_vcf: Path) -> Tuple[str, int, int]:
         """Retrieve the chromosome and start and end coordinates of a BCF file.
 
-        :param input_vcf: Input VCF file. Here we use the CADD vcf sites file
+        :param input_vcf: Input VCF sites file. Here we use the VEP vcf sites file so we don't have to parse GTs
         :return: A Tuple containing the chromosome, start, and end coordinates
         """
 
         with input_vcf.open('r') as sites_reader:
-            for line_num, site in enumerate(sites_reader):
-                site_data = site.rstrip().split('\t')
-                if line_num == 1:
-                    chunk_chrom = 'chr' + site_data[0]  # We are using the stripped CADD file - have to add chr back in
-                    chunk_start = int(site_data[1])
-                chunk_end = int(site_data[1])
+            line_num = 1
+            for line in sites_reader:
+                if line.startswith('#'):
+                    continue
+                else:
+                    site_data = line.rstrip().split('\t')
+                    if line_num == 1:
+                        chunk_chrom = site_data[0]
+                        chunk_start = int(site_data[1])
+                    chunk_end = int(site_data[1])
+                    line_num += 1
 
         return chunk_chrom, chunk_start, chunk_end
 
@@ -235,57 +216,6 @@ class VCFAnnotate:
         input_vcf.unlink()
 
         return output_vcf
-
-    def _run_cadd(self, cadd_vcf: Path) -> AdditionalAnnotation:
-        """This method runs CADD on provided variants. It DOES NOT add the annotations to the VCF.
-
-        After this method is called, the AdditionalAnnotation is then provided to :func:`_add_additional_annotation` to
-        add scores to the VCF with bcftools annotate.
-
-        :param cadd_vcf: The VCF file in a CADD-friendly format
-        :return: An AdditionalAnnotation object containing the CADD annotation information
-        """
-
-        # Run CADD on the sites file from generate_sites_files():
-        cadd_tsv = Path(f'{self.vcfprefix}.cadd.tsv')
-        cmd = f'CADD-scripts/CADD.sh -c 4 -g GRCh38 ' \
-              f'-o /test/{cadd_tsv} ' \
-              f'/test/{cadd_vcf}'
-
-        self._cadd_executor.run_cmd_on_docker(cmd)
-
-        # Add chr back so BCFtools can understand for reannotation, simplify the output, and then bgzip and tabix
-        # index
-        cadd_chr = Path(f'{self.vcfprefix}.cadd.chr.tsv')
-        with gzip.open(cadd_tsv, 'rt') as cadd_reader,\
-                cadd_chr.open('w') as cadd_out:
-
-            cadd_csv = csv.DictWriter(cadd_out, delimiter='\t', fieldnames=['#CHROM', 'POS', 'REF', 'ALT', 'CADD'])
-            cadd_csv.writeheader()
-
-            for line in cadd_reader:
-                data = line.rstrip().split('\t')
-                if data[0].startswith('#'):
-                    continue
-                cadd_csv.writerow({'#CHROM': f'chr{data[0]}',
-                                   'POS': data[1],
-                                   'REF': data[2],
-                                   'ALT': data[3],
-                                   'CADD': data[5]})
-
-        cadd_gz, cadd_idx = bgzip_and_tabix(cadd_chr, end_row=2, comment_char='"#"')
-
-        cadd_annotation: AdditionalAnnotation = {'annotation_name': 'CADD',
-                                                 'file': cadd_gz,
-                                                 'index': cadd_idx,
-                                                 'header_file': Path('cadd.header.txt'),
-                                                 'symbol_mode': None}
-
-        # Remove CADD intermediate files to save space
-        cadd_vcf.unlink()
-        cadd_tsv.unlink()
-
-        return cadd_annotation
 
     def _add_additional_annotation(self, input_tsv, annotation: AdditionalAnnotation) -> Tuple[Path, str]:
         """This method will take a tab-delimited, tabix-indexed .tsv file with a single annotation, and add it to the
