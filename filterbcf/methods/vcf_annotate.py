@@ -6,7 +6,8 @@ from typing import TypedDict, Tuple, List
 from pathlib import Path
 
 from filterbcf.methods.ingest_data import AdditionalAnnotation
-from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix, replace_multi_suffix
+from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix, replace_multi_suffix, \
+    check_gzipped
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.mrc_logger import MRCLogger
 
@@ -180,7 +181,7 @@ class VCFAnnotate:
         :return: A Tuple containing the chromosome, start, and end coordinates
         """
 
-        with input_vcf.open('r') as sites_reader:
+        with check_gzipped(input_vcf) as sites_reader:
             line_num = 1
             for line in sites_reader:
                 if line.startswith('#'):
