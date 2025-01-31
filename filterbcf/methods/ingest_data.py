@@ -25,9 +25,7 @@ class AdditionalAnnotation(TypedDict):
 class IngestData:
 
     def __init__(self, input_vcfs: dict, human_reference: dict, human_reference_index: dict, vep_cache: dict,
-                 loftee_libraries: dict,
-                 cadd_annotations: dict, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict,
-                 additional_annotations: List[dict], thread_utility: ThreadUtility):
+                 loftee_libraries: dict, additional_annotations: List[dict], thread_utility: ThreadUtility):
         """A class to download resources required for annotation of UKBiobank BCF files. This class is simple and in
         most cases only downloads inputs. It is designed to be used in a multi-threaded environment so that the
         download of very large resource files (e.g. VEP cache) can be done in tandem.
@@ -38,9 +36,6 @@ class IngestData:
         :param human_reference_index: A dxlink to the human reference index file in .fasta.fai format
         :param vep_cache: A dxlink to a vep cache downloaded from ENSEMBLE
         :param loftee_libraries: A dxlink to a tarball containing LoFTEE libraries
-        :param cadd_annotations: A dxlink to a tarball containing CADD annotations
-        :param precomputed_cadd_snvs: A dxlink to a precomputed CADD SNV file
-        :param precomputed_cadd_indels: A dxlink to a precomputed CADD InDel file
         :param additional_annotations: A list of dxlinks to additional annotation files that are added to the final
             VCF file. These most follow a strict format (see :func:`_ingest_annotation()` for more information)
         """
@@ -49,16 +44,6 @@ class IngestData:
 
         # Get a Docker image with executables
         self.cmd_executor = build_default_command_executor()
-
-        # CADD requires specialised mounts and a separate Docker image in Docker to run properly. I spoof the default
-        # paths that CADD expects as mount points within the image.
-        cadd_mounts = [DockerMount(local=Path('/home/dnanexus/cadd_files/'),
-                                   remote=Path('/CADD-scripts/data/annotations/')),
-                       DockerMount(local=Path('/home/dnanexus/cadd_precomputed/'),
-                                   remote=Path('/CADD-scripts/data/prescored/GRCh38_v1.6/incl_anno/')),
-                       DockerMount(local=Path('/home/dnanexus/'),
-                                   remote=Path('/test/'))]
-        self.cadd_executor = CommandExecutor(docker_image='egardner413/mrcepid-cadd', docker_mounts=cadd_mounts)
 
         # Set variables we want to store:
         self.input_vcfs = self._set_vcf_list(input_vcfs)
@@ -75,10 +60,6 @@ class IngestData:
                                   human_reference_index=human_reference_index)
         thread_utility.launch_job(self._ingest_loftee_files, loftee_libraries=loftee_libraries)
         thread_utility.launch_job(self._ingest_vep_cache, vep_cache=vep_cache)
-        thread_utility.launch_job(self._ingest_cadd_files, cadd_annotations=cadd_annotations)
-        thread_utility.launch_job(self._ingest_precomputed_cadd_files,
-                                  precomputed_cadd_snvs=precomputed_cadd_snvs,
-                                  precomputed_cadd_indels=precomputed_cadd_indels)
 
     def _set_vcf_list(self, input_vcfs: dict) -> List[str]:
         """Download the input VCF list.
@@ -149,55 +130,6 @@ class IngestData:
         # And purge the large tarball
         vep_path.unlink()
         self._logger.info('VEP resources finished downloading and unpacking...')
-
-    def _ingest_cadd_files(self, cadd_annotations: dict) -> None:
-        """Download the CADD annotations. These are the resource files so InDel CADD scores can be calculated from
-        scratch.
-
-        :param cadd_annotations: A dxlink to a tarball containing CADD annotations
-        :return: None
-        """
-
-        # First the annotations
-        cadd_dir = Path('cadd_files/')
-        cadd_dir.mkdir(exist_ok=True)
-        cadd_path = download_dxfile_by_name(cadd_annotations)
-
-        cmd = f'tar -zxf {cadd_path} -C {cadd_dir}/'
-        self.cmd_executor.run_cmd(cmd)
-
-        # And finally remove the large annotations tar ball
-        cadd_path.unlink()
-        self._logger.info('CADD resources finished downloading and unpacking...')
-
-    def _ingest_precomputed_cadd_files(self, precomputed_cadd_snvs: dict, precomputed_cadd_indels: dict) -> None:
-        """Download the precomputed CADD annotations. This function also writes a CADD BCF header for use with
-        BCFtools annotate. These are pre-computed sites files so we don't have to recompute CADD for SNVs/known InDels
-
-        :param precomputed_cadd_snvs: A dxlink to a precomputed CADD SNV file
-        :param precomputed_cadd_indels: A dxlink to a precomputed CADD InDel file
-        :return: None
-        """
-
-        # Now precomputed files...
-        cadd_dir = Path('cadd_precomputed/')
-        cadd_dir.mkdir(exist_ok=True)
-
-        # SNVs...
-        cadd_snvs = download_dxfile_by_name(precomputed_cadd_snvs)
-        cadd_snvs.rename(cadd_dir / cadd_snvs.name)
-        cadd_snvs_idx = download_dxfile_by_name(find_index(precomputed_cadd_snvs, 'tbi'))
-        cadd_snvs_idx.rename(cadd_dir / cadd_snvs_idx.name)
-
-        # InDels...
-        cadd_indels = download_dxfile_by_name(precomputed_cadd_indels)
-        cadd_indels.rename(cadd_dir / cadd_indels.name)
-        cadd_indels_idx = download_dxfile_by_name(find_index(precomputed_cadd_indels, 'tbi'))
-        cadd_indels_idx.rename(cadd_dir / cadd_snvs_idx.name)
-
-        # Write a header for cadd annotation with bcftools annotate:
-        self._write_cadd_header()
-        self._logger.info('Precomputed CADD resources finished downloading and unpacking...')
 
     @staticmethod
     def _determine_annotation_type(values: List[str]) -> Tuple[str, str]:
@@ -327,12 +259,3 @@ class IngestData:
 
         return {'file': annotation_path, 'index': index_path, 'annotation_name': annotation_name,
                 'header_file': header_file, 'symbol_mode': symbol_mode}
-
-    @staticmethod
-    def _write_cadd_header() -> None:
-        """Write a header for CADD annotation with bcftools annotate.
-
-        :return: None
-        """
-        with Path('cadd.header.txt').open('w') as header_writer:
-            header_writer.write(f'##INFO=<ID=CADD,Number=1,Type=Float,Description="CADD Phred Score">\n')

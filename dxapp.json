@@ -66,27 +66,6 @@
       "help": "Pointer to the tar.gz file of loftee databases on DNA nexus"
     },
     {
-      "name": "cadd_annotations",
-      "label": "CADD annotations",
-      "class": "file",
-      "optional": false,
-      "help": "Pointer to annotations used by CADD to compute variant deleteriousness scores."
-    },
-    {
-      "name": "precomputed_cadd_snvs",
-      "label": "",
-      "class": "file",
-      "optional": false,
-      "help": ".tsv.gz file of all possible pre-computed SNVs in the GRCh38 human reference genome."
-    },
-    {
-      "name": "precomputed_cadd_indels",
-      "label": "",
-      "class": "file",
-      "optional": false,
-      "help": ".tsv.gz file of all gnomAD v3.0 InDels in GRCh38 human reference coordinates."
-    },
-    {
       "name": "additional_annotations",
       "label": "",
       "class": "array:file",
@@ -118,7 +97,7 @@
       "patterns": [
         "*.bcf"
       ],
-      "help": "Output BCF(s) with CADD annotation"
+      "help": "Output BCF(s) with annotation"
     },
     {
       "name": "output_bcf_idxs",
