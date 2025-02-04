@@ -1,6 +1,4 @@
 import csv
-import gzip
-import itertools
 
 from typing import TypedDict, Tuple, List
 from pathlib import Path
@@ -15,7 +13,7 @@ from general_utilities.mrc_logger import MRCLogger
 class VCFAnnotate:
 
     def __init__(self, vcf_path: Path, filtered_vcf: Path, additional_annotations: List[AdditionalAnnotation],
-                 cmd_executor: CommandExecutor):
+                 cmd_executor: CommandExecutor, dna_nexus_run):
 
         self._logger = MRCLogger(__name__).get_logger()
         self._cmd_executor = cmd_executor
@@ -34,6 +32,7 @@ class VCFAnnotate:
         # 2. This does the initial VEP run
         annotated_vcf = self._run_vep(sites_vcf)
 
+
         # 3. Generate an annotations TSV for the VCF
         vep_tsv = self._generate_annotations_tsv(annotated_vcf)
 
@@ -47,7 +46,7 @@ class VCFAnnotate:
 
         # 5. Generating merged/final files:
         # This function parses the information from the raw VEP run (via run_vep()) and adds it to our filtered vcf
-        vep_gz, vep_gz_tbi = self._parse_vep(vep_tsv, annotation_names)
+        vep_gz, vep_gz_tbi = self._parse_vep(vep_tsv, annotation_names, dna_nexus_run)
 
         # 6. Set final file outputs for this entire process:
         self.finalbcf = generate_linked_dx_file(filtered_vcf)
@@ -305,7 +304,7 @@ class VCFAnnotate:
 
         return vep_table
 
-    def _parse_vep(self, raw_vep: Path, annotation_names: List[str]) -> Tuple[Path, Path]:
+    def _parse_vep(self, raw_vep: Path, annotation_names: List[str], dna_nexus_run: bool) -> Tuple[Path, Path]:
         """This function parses VEP output for most severe CSQ for each variant. See individual comments in this code to
          understand how that is done.
 
@@ -355,7 +354,6 @@ class VCFAnnotate:
 
             # Iterate through records (step 1)
             for rec in reader_csv:
-
                 # Skip the original header
                 if rec['CHROM'].startswith('#'):
                     continue
@@ -414,6 +412,6 @@ class VCFAnnotate:
             held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
             writer_csv.writerow(held_rec)
 
-        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2)
+        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2, dna_nexus_run=dna_nexus_run)
 
         return vep_gz, vep_gz_idx
