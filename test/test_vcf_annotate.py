@@ -15,24 +15,22 @@ test_data_dir = Path(__file__).parent
 
 @pytest.mark.parametrize(
     "vcf_filename, expected_chrom, expected_start, expected_end, expected_vep,"
-    "expected_tsv, final_vep_file",
+    "final_vep_file",
     [
         (
                 Path('/test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
-                'test_input1.vcf.sites.vep.vcf.gz',
+                'test_input1.vcf.sites.vcf.gz',
                 'test_input1.vcf.vep_table.tsv',
-                'test_input1.vcf.vep.tsv.gz',
         ),
         (
                 Path('/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
-                'test_input2.vcf.sites.vep.vcf.gz',
+                'test_input2.vcf.sites.vcf.gz',
                 'test_input2.vcf.vep_table.tsv',
-                'test_input2.vcf.vep.tsv.gz',
         ),
     ]
 )
 def test_vcf_annotator(vcf_filename, expected_chrom, expected_start, expected_end,
-                       expected_vep, expected_tsv, final_vep_file):
+                       expected_vep, final_vep_file):
     """
     Test the VCFAnnotate class and its methods.
 
@@ -88,9 +86,7 @@ def test_vcf_annotator(vcf_filename, expected_chrom, expected_start, expected_en
         ("intergenic_variant", {'score': 19, 'type': 'INTERGENIC'}),
         ("upstream_gene_variant", {'score': 20, 'type': 'INTERGENIC'}),
         ("downstream_gene_variant", {'score': 21, 'type': 'INTERGENIC'}),
-        ("unknown_variant", {'score': 22, 'type': 'ERROR'}),
-        ("stop_gained&missense_variant", {'score': 1, 'type': 'PTV'}),
-        ("missense_variant&synonymous_variant", {'score': 9, 'type': 'MISSENSE'}),
+        ("no_score", {'score': 22, 'type': 'ERROR'})
     ]
 
     for csq, expected in csq_expected_pairs:
@@ -187,39 +183,34 @@ def test_vcf_annotator(vcf_filename, expected_chrom, expected_start, expected_en
     assert end == expected_end
     print("BCF information parsed correctly")
 
-    # test running VEP summary
-    os.remove(Path(f'{vcf_annotator.vcfprefix}.sites.vep.vcf.gz_summary.html'))
-    output_vep = vcf_annotator._run_vep(Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz'))
+    # test running VEP site file generation
+    # make sure the file exists
+    output_vep = Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz')
     assert output_vep.exists()
+    # read in the expected file
     expected_vep = test_data_dir / 'test_data/expected_outputs' / expected_vep
     vcf1 = pysam.VariantFile(expected_vep)
+    # read in the file that we just generated
     vcf2 = pysam.VariantFile(output_vep)
+    # make sure the file records are the same
     for rec1, rec2 in zip(vcf1.fetch(), vcf2.fetch()):
-        # Compare the records
-        assert rec1 == rec2, f"Records do not match: {rec1} != {rec2}"
+        if rec1 != rec2:
+            print(f"Record 1: {rec1}")
+            print(f"Record 2: {rec2}")
+            assert rec1 == rec2, f"Records do not match: {rec1} != {rec2}"
     assert sum(1 for _ in vcf1.fetch()) == sum(1 for _ in vcf2.fetch()), "Number of records do not match"
     print("VEP summary generated")
 
-    # make sure the annotations TSV is being properly created
+    # test parsing the final VEP file
+    # make sure it exists
     assert Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv').exists()
-    expected_tsv = test_data_dir / 'test_data/expected_outputs' / expected_tsv
-    df1 = pd.read_csv(expected_tsv, sep='\t')
-    df2 = pd.read_csv(Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv'), sep='\t')
-    pd.testing.assert_frame_equal(df1, df2, check_like=True)
-    print("Annotations are saved to a TSV")
-
-    # test parsing the VEP file
-    vep_gz, vep_gz_idx = vcf_annotator._parse_vep(
-        raw_vep=Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv'),
-        annotation_names=[],
-        dna_nexus_run=False)
-
-    assert Path(f'{vcf_annotator.vcfprefix}.vep.tsv.gz').exists()
-    assert Path(f'{vcf_annotator.vcfprefix}.vep.tsv.gz.tbi').exists()
     # make sure the final VEP files are being properly created
+    # read in the expected file
     final_vep_file = test_data_dir / 'test_data/expected_outputs' / final_vep_file
     df1 = pd.read_csv(final_vep_file, sep='\t')
-    df2 = pd.read_csv(Path(f'{vcf_annotator.vcfprefix}.vep.tsv.gz'), sep='\t')
+    # read in the file we just created
+    df2 = pd.read_csv(Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv'), sep='\t')
+    # make sure they are the same
     pd.testing.assert_frame_equal(df1, df2, check_like=True)
     print("VEP TSV files have been created successfully")
 

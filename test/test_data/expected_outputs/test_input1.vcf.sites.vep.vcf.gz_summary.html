@@ -6,7 +6,7 @@
     google.load('visualization', '1', {packages: ['corechart','table']});
   </script>
   <script type="text/javascript">
-
+    
     function init() {
       // charts
       var var_class_pie = drawPie('var_class_pie', 'Variant classes', google.visualization.arrayToDataTable([['Variant class','Count'],['sequence_alteration',32],['insertion',49],['deletion',69],['SNV',757]]), null);
@@ -18,8 +18,8 @@ var var_class_table = drawTable('var_class_table', 'Variant classes', google.vis
           google.visualization.events.addListener(var_class_table, 'select', function() {
             var_class_pie.setSelection(var_class_table.getSelection());
           });
-        var var_cons_pie = drawPie('var_cons_pie', 'Consequences (most severe)', google.visualization.arrayToDataTable([['Consequence type','Count'],['splice_donor_variant',1],['splice_acceptor_variant',1],['stop_gained',1],['inframe_insertion',1],['inframe_deletion',2],['missense_variant',71],['splice_region_variant',12],['splice_polypyrimidine_tract_variant',19],['splice_donor_region_variant',5],['synonymous_variant',59],['5_prime_UTR_variant',84],['3_prime_UTR_variant',200],['non_coding_transcript_exon_variant',18],['intron_variant',401],['intergenic_variant',32]]), {slices: [{color: "#ff7f50"}, {color: "#ff7f50"}, {color: "#ff0000"}, {color: "#ff69b4"}, {color: "#ff69b4"}, {color: "#ffd700"}, {color: "#ff7f50"}, {}, {}, {color: "#76ee00"}, {}, {}, {}, {color: "#02599c"}, {color: "gray"}]});
-var var_cons_table = drawTable('var_cons_table', 'Consequences (most severe)', google.visualization.arrayToDataTable([['Consequence type','Count'],['splice_donor_variant',1],['splice_acceptor_variant',1],['stop_gained',1],['inframe_insertion',1],['inframe_deletion',2],['missense_variant',71],['splice_region_variant',12],['splice_polypyrimidine_tract_variant',19],['splice_donor_region_variant',5],['synonymous_variant',59],['5_prime_UTR_variant',84],['3_prime_UTR_variant',200],['non_coding_transcript_exon_variant',18],['intron_variant',401],['intergenic_variant',32]]));
+        var var_cons_pie = drawPie('var_cons_pie', 'Consequences (most severe)', google.visualization.arrayToDataTable([['Consequence type','Count'],['splice_donor_variant',1],['splice_acceptor_variant',1],['stop_gained',1],['inframe_insertion',1],['inframe_deletion',2],['missense_variant',71],['splice_polypyrimidine_tract_variant',19],['splice_region_variant',12],['splice_donor_region_variant',5],['synonymous_variant',59],['5_prime_UTR_variant',84],['3_prime_UTR_variant',200],['non_coding_transcript_exon_variant',18],['intron_variant',401],['intergenic_variant',32]]), {slices: [{color: "#ff7f50"}, {color: "#ff7f50"}, {color: "#ff0000"}, {color: "#ff69b4"}, {color: "#ff69b4"}, {color: "#ffd700"}, {}, {color: "#ff7f50"}, {}, {color: "#76ee00"}, {}, {}, {}, {color: "#02599c"}, {color: "gray"}]});
+var var_cons_table = drawTable('var_cons_table', 'Consequences (most severe)', google.visualization.arrayToDataTable([['Consequence type','Count'],['splice_donor_variant',1],['splice_acceptor_variant',1],['stop_gained',1],['inframe_insertion',1],['inframe_deletion',2],['missense_variant',71],['splice_polypyrimidine_tract_variant',19],['splice_region_variant',12],['splice_donor_region_variant',5],['synonymous_variant',59],['5_prime_UTR_variant',84],['3_prime_UTR_variant',200],['non_coding_transcript_exon_variant',18],['intron_variant',401],['intergenic_variant',32]]));
 
           google.visualization.events.addListener(var_cons_pie, 'select', function() {
             var_cons_table.setSelection(var_cons_pie.getSelection());
@@ -76,8 +76,8 @@ var chr_table = drawTable('chr_table', 'Variants by chromosome', google.visualiz
 var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualization.arrayToDataTable([['Position in protein (percentile)','Count'],['00-10%',42],['10-20%',36],['20-30%',48],['30-40%',51],['40-50%',27],['50-60%',54],['60-70%',39],['70-80%',27],['80-90%',39],['90-100%',42]]), {hAxis: {title: "Position in protein (percentile)", textStyle: {fontSize: 10}}, legend: {position: "none"}});
 
     }
-
-    function drawPie(id, title, data, options) {
+    
+    function drawPie(id, title, data, options) {    
       var pie = new google.visualization.PieChart(document.getElementById(id));
       pie.draw(data, options);
       return pie;
@@ -104,22 +104,22 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
     }
     google.setOnLoadCallback(init);
   </script>
-
-
+  
+  
   <style type="text/css">
     body {
       font-family: arial, sans-serif;
       margin: 0px;
       padding: 0px;
     }
-
+    
     a {color: #36b;}
     a.visited {color: #006;}
-
+    
     .stats_table {
       margin: 5px;
     }
-
+    
     td {
       padding: 5px;
     }
@@ -131,11 +131,11 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
     .stats_table tr:nth-child(odd) {
       background-color: #f0f0f0;
     }
-
+    
     h3 {
       color: #666;
     }
-
+    
     .masthead {
       background-color: white;
       color: rgb(204, 221, 255);
@@ -143,11 +143,11 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
       width: 100%;
       padding: 0px;
     }
-
+    
     .main {
       padding: 10px;
     }
-
+    
     .gradient {
       background: #333366; /* Old browsers */
       background: -moz-linear-gradient(left,  #333366 0%, #ffffff 100%); /* FF3.6+ */
@@ -157,16 +157,16 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
       background: -ms-linear-gradient(left,  #333366 0%,#ffffff 100%); /* IE10+ */
       background: linear-gradient(to right,  #333366 0%,#ffffff 100%); /* W3C */
       filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#333366', endColorstr='#ffffff',GradientType=1 ); /* IE6-9 */
-
+      
       padding: 0px;
       height: 80px;
       width: 700px;
     }
-
+    
     .main_content {
       margin-left: 300px;
     }
-
+    
     .sidemenu {
       width: 260px;
       position: fixed;
@@ -174,14 +174,14 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
       border-width: 2px;
       border-color: rgb(51, 51, 102);
     }
-
+    
     .sidemenu_head {
       width: 250px;
       background-color: rgb(51, 51, 102);
       color: rgb(204, 221, 255);
       padding: 5px;
     }
-
+    
     .sidemenu_body {
       width: 250px;
       padding: 5px;
@@ -193,7 +193,7 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
   <div style="float: left; display: inline; padding: 10px; height: 80px;">
     <a href="http://www.ensembl.org/"><img src="http://static.ensembl.org/i/e-ensembl.png" width="185" height="45" alt="Ensembl"></a>
   </div>
-
+  
   <div style="float: right; display: inline; height: 80px; background: white; padding: 10px;">
     <a href="http://www.ensembl.org/vep"><img src="http://www.ensembl.org/img/vep_logo.png" width="111" height="50" alt="VEP"></a>
   </div>
@@ -201,6 +201,6 @@ var protein_bar = drawBar('protein_bar', 'Position in protein', google.visualiza
   </div>
 </div>
 <div class="main">
-<div class="sidemenu"><div class="sidemenu_head">Links</div><div class="sidemenu_body"><ul><li><a href="#masthead">Top of page</a></li><li><a href="#run_stats">VEP run statistics</a></li><li><a href="#gen_stats">General statistics</a></li><li><a href="#var_class">Variant classes</a></li><li><a href="#var_cons">Consequences (most severe)</a></li><li><a href="#consequences">Consequences (all)</a></li><li><a href="#coding">Coding consequences</a></li><li><a href="#sift">SIFT summary</a></li><li><a href="#polyphen">PolyPhen summary</a></li><li><a href="#chr">Variants by chromosome</a></li><li><a href="#protein">Position in protein</a></li></ul></div></div><div class='main_content'><h3 id="run_stats">VEP run statistics</h3><table class="stats_table"><tr><td>VEP version (API)</td><td> 108 (108)</td></tr><tr><td>Annotation sources</td><td>Cache: /test/vep_caches/homo_sapiens/108_GRCh38</td></tr><tr><td>Species</td><td>homo_sapiens</td></tr><tr><td>Command line options</td><td><pre>--allele_number --assembly GRCh38 --cache --compress_output bgzip --dir_cache /test/vep_caches/ --dir_plugins ensembl-vep/cache/Plugins/ --everything --fasta /test/reference.fasta --fork 4 --format vcf --full_command vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ --everything --allele_num --fork 4 -i /test/test_input1.vcf.sites.vcf.gz --format vcf --fasta /test/reference.fasta -o /test/test_input1.vcf.sites.vep.vcf.gz --compress_output bgzip --vcf --dir_plugins ensembl-vep/cache/Plugins/ --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw --input_file /test/test_input1.vcf.sites.vcf.gz --offline --output_file /test/test_input1.vcf.sites.vep.vcf.gz --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw --vcf</pre></td></tr><tr><td>Start time</td><td>2025-02-04 10:45:45</td></tr><tr><td>End time</td><td>2025-02-04 10:45:48</td></tr><tr><td>Run time</td><td>3 seconds</td></tr><tr><td>Input file</td><td>/test/test_input1.vcf.sites.vcf.gz</td></tr><tr><td>Output file</td><td>/test/test_input1.vcf.sites.vep.vcf.gz</td></tr></table><h3 id="gen_stats">General statistics</h3><table class="stats_table"><tr><td>Lines of input read</td><td>907</td></tr><tr><td>Variants processed</td><td>907</td></tr><tr><td>Variants filtered out</td><td>0</td></tr><tr><td>Novel / existing variants</td><td>107 (11.8) / 800 (88.2)</td></tr><tr><td>Overlapped genes</td><td>2</td></tr><tr><td>Overlapped transcripts</td><td>20</td></tr><tr><td>Overlapped regulatory features</td><td>7</td></tr></table><hr/><h3 id="var_class">Variant classes</h3><div id="var_class_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="var_class_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="var_cons">Consequences (most severe)</h3><div id="var_cons_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="var_cons_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="consequences">Consequences (all)</h3><div id="consequences_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="consequences_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="coding">Coding consequences</h3><div id="coding_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="coding_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="sift">SIFT summary</h3><div id="sift_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="sift_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="polyphen">PolyPhen summary</h3><div id="polyphen_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="polyphen_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="chr">Variants by chromosome</h3><div id="chr_bar" style="width: 800px; height: 200px">&nbsp;</div><div id="chr_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="chr_chr7">Distribution of variants on chromosome chr7</h3><div id="chr_chr7_area" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="protein">Position in protein</h3><div id="protein_bar" style="width: 800px; height: 200px">&nbsp;</div></div>
+<div class="sidemenu"><div class="sidemenu_head">Links</div><div class="sidemenu_body"><ul><li><a href="#masthead">Top of page</a></li><li><a href="#run_stats">VEP run statistics</a></li><li><a href="#gen_stats">General statistics</a></li><li><a href="#var_class">Variant classes</a></li><li><a href="#var_cons">Consequences (most severe)</a></li><li><a href="#consequences">Consequences (all)</a></li><li><a href="#coding">Coding consequences</a></li><li><a href="#sift">SIFT summary</a></li><li><a href="#polyphen">PolyPhen summary</a></li><li><a href="#chr">Variants by chromosome</a></li><li><a href="#protein">Position in protein</a></li></ul></div></div><div class='main_content'><h3 id="run_stats">VEP run statistics</h3><table class="stats_table"><tr><td>VEP version (API)</td><td> 108 (108)</td></tr><tr><td>Annotation sources</td><td>Cache: /test/vep_caches/homo_sapiens/108_GRCh38</td></tr><tr><td>Species</td><td>homo_sapiens</td></tr><tr><td>Command line options</td><td><pre>--allele_number --assembly GRCh38 --cache --compress_output bgzip --dir_cache /test/vep_caches/ --dir_plugins ensembl-vep/cache/Plugins/ --everything --fasta /test/reference.fasta --fork 4 --format vcf --full_command vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ --everything --allele_num --fork 4 -i /test/test_input1.vcf.sites.vcf.gz --format vcf --fasta /test/reference.fasta -o /test/test_input1.vcf.sites.vep.vcf.gz --compress_output bgzip --vcf --dir_plugins ensembl-vep/cache/Plugins/ --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw --input_file /test/test_input1.vcf.sites.vcf.gz --offline --output_file /test/test_input1.vcf.sites.vep.vcf.gz --plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw --vcf</pre></td></tr><tr><td>Start time</td><td>2025-02-05 12:06:32</td></tr><tr><td>End time</td><td>2025-02-05 12:06:34</td></tr><tr><td>Run time</td><td>2 seconds</td></tr><tr><td>Input file</td><td>/test/test_input1.vcf.sites.vcf.gz</td></tr><tr><td>Output file</td><td>/test/test_input1.vcf.sites.vep.vcf.gz</td></tr></table><h3 id="gen_stats">General statistics</h3><table class="stats_table"><tr><td>Lines of input read</td><td>907</td></tr><tr><td>Variants processed</td><td>907</td></tr><tr><td>Variants filtered out</td><td>0</td></tr><tr><td>Novel / existing variants</td><td>107 (11.8) / 800 (88.2)</td></tr><tr><td>Overlapped genes</td><td>2</td></tr><tr><td>Overlapped transcripts</td><td>20</td></tr><tr><td>Overlapped regulatory features</td><td>7</td></tr></table><hr/><h3 id="var_class">Variant classes</h3><div id="var_class_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="var_class_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="var_cons">Consequences (most severe)</h3><div id="var_cons_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="var_cons_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="consequences">Consequences (all)</h3><div id="consequences_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="consequences_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="coding">Coding consequences</h3><div id="coding_pie" style="width: 800px; height: 400px">&nbsp;</div><div id="coding_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="sift">SIFT summary</h3><div id="sift_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="sift_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="polyphen">PolyPhen summary</h3><div id="polyphen_pie" style="width: 800px; height: 200px">&nbsp;</div><div id="polyphen_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="chr">Variants by chromosome</h3><div id="chr_bar" style="width: 800px; height: 200px">&nbsp;</div><div id="chr_table" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="chr_chr7">Distribution of variants on chromosome chr7</h3><div id="chr_chr7_area" style="width: 800px; height: 200px">&nbsp;</div><hr/><h3 id="protein">Position in protein</h3><div id="protein_bar" style="width: 800px; height: 200px">&nbsp;</div></div>
 </div></body>
 </html>
