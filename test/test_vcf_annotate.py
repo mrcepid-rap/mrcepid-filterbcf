@@ -1,5 +1,9 @@
-import glob
+"""
+Note: these tests take a little while (~1 minute) as we are dealing with very large files.
+If you want to keep the output of these tests, change the flag KEEP_TEMP to True.
+"""
 import os
+import shutil
 from pathlib import Path
 
 import pandas as pd
@@ -11,6 +15,47 @@ from filterbcf.methods.vcf_annotate import VCFAnnotate
 from filterbcf.methods.vcf_filter import VCFFilter
 
 test_data_dir = Path(__file__).parent
+
+# Set this flag to True if you want to keep (copy) the temporary output files
+KEEP_TEMP = False
+
+
+@pytest.fixture
+def temporary_path(tmp_path, monkeypatch):
+    """
+    Prepare a temporary working directory by copying everything from the project root
+    (i.e. the test directory where this file lives) into the temporary directory.
+
+    This way, every file and folder (including reference.fasta, vep_caches, loftee_files,
+    test_data, etc.) is available in the temporary directory. The working directory is
+    then changed to the temporary directory.
+
+    If KEEP_TEMP is True, after the test the entire temporary directory is copied to a
+    folder 'temp_test_outputs' in the project root.
+    """
+    # Define the project root (where this file lives)
+    project_root = Path(__file__).parent
+
+    # Iterate over every item in the project root and copy it to the temporary directory.
+    for item in project_root.iterdir():
+        dest = tmp_path / item.name
+        if item.is_dir():
+            shutil.copytree(item, dest)
+        else:
+            shutil.copy2(item, dest)
+
+    # Change the current working directory to the temporary directory.
+    monkeypatch.chdir(tmp_path)
+
+    # Yield the temporary directory to the test.
+    yield tmp_path
+
+    # After the test, if KEEP_TEMP is True, copy the temporary directory to a persistent location.
+    if KEEP_TEMP:
+        persistent_dir = project_root / "temp_test_outputs" / tmp_path.name
+        persistent_dir.parent.mkdir(exist_ok=True)
+        shutil.copytree(tmp_path, persistent_dir, dirs_exist_ok=True)
+        print(f"Temporary output files have been copied to: {persistent_dir}")
 
 
 @pytest.mark.parametrize(
@@ -29,7 +74,7 @@ test_data_dir = Path(__file__).parent
         ),
     ]
 )
-def test_vcf_annotator(vcf_filename, expected_chrom, expected_start, expected_end,
+def test_vcf_annotator(temporary_path, vcf_filename, expected_chrom, expected_start, expected_end,
                        expected_vep, final_vep_file):
     """
     Test the VCFAnnotate class and its methods.
@@ -213,21 +258,3 @@ def test_vcf_annotator(vcf_filename, expected_chrom, expected_start, expected_en
     # make sure they are the same
     pd.testing.assert_frame_equal(df1, df2, check_like=True)
     print("VEP TSV files have been created successfully")
-
-    delete_test_files(test_data_dir)
-    print("Test output files have been deleted")
-
-
-def delete_test_files(directory):
-    """
-    Delete all the files after we are done testing them
-    """
-    # Use glob to find files starting with "testing_output"
-    files_to_delete = glob.glob(os.path.join(directory, 'test_input*'))
-
-    # Iterate and delete each file
-    for file_path in files_to_delete:
-        try:
-            os.remove(file_path)
-        except Exception as e:
-            print(f"Error deleting {file_path}: {e}")
