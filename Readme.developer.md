@@ -3,8 +3,7 @@
 ## Testing
 
 Note for development: this applet has now been set to work with local unit tests, to ensure
-robust CI/CD. Due to size, this test data cannot be pushed to GitHub. Please ge in touch with 
-Eugene Gardner for any further information.
+robust CI/CD.
 
 Note that the dependency files (LOFTEE files, VEP files & reference files) should be downloaded
 separately and arranged in the way that is outlined below, to ensure successful test runs.
