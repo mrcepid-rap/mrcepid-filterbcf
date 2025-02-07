@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 from typing import Tuple
 
@@ -8,6 +9,9 @@ from pysam import VariantFile
 from filterbcf.methods.vcf_filter import VCFFilter
 
 test_data_dir = Path(__file__).parent / 'test_data'
+
+# Set this flag to True if you want to keep (copy) the temporary output files.
+KEEP_TEMP = False
 
 EXPECTED_VCF_VALUES = [{'final': 845, 'missing': 6, 'original': 835,
                         'vcf': test_data_dir / 'test_input1.vcf.gz',
@@ -24,19 +28,39 @@ for vcf_data in EXPECTED_VCF_VALUES:
     assert vcf_data['index'].exists()
 
 
-@pytest.fixture(scope='function')
-def tmp_data_dir(tmp_path_factory) -> Path:
-    """Is a fixture to create a tmp_dir so tests do not clutter the test_data directory.
-
-    This fixture just symlinks the fasta files in test_data/ to a tmp_dir.
-
-    :param tmp_path_factory: A tmp_path_factory object from pytest.
-    :return: A Pathlike to the temporary directory.
+@pytest.fixture
+def temporary_path(tmp_path, monkeypatch):
     """
+    Prepare a temporary working directory that contains a copy of the test_data
+    directory, then change the working directory to it.
 
-    tmp_data = tmp_path_factory.mktemp('data')
+    If KEEP_TEMP is True, after the test the entire temporary directory will be copied
+    to a folder 'temp_test_outputs' in the project root.
+    """
+    # Determine where the original test_data directory is located.
+    # (Assumes it is at <project_root>/test_data)
+    project_root = Path(__file__).parent
+    test_data_source = project_root / "test_data"
 
-    return tmp_data
+    # Create the destination folder inside the tmp_path.
+    destination = tmp_path / "test_data"
+    destination.parent.mkdir(parents=True, exist_ok=True)
+
+    # Copy the entire test_data directory into the temporary directory.
+    shutil.copytree(test_data_source, destination)
+
+    # Change the current working directory to the temporary directory.
+    monkeypatch.chdir(tmp_path)
+
+    # Yield the temporary directory to the test.
+    yield tmp_path
+
+    # After the test, if KEEP_TEMP is True, copy the temporary directory to a persistent location.
+    if KEEP_TEMP:
+        persistent_dir = project_root / "temp_test_outputs" / tmp_path.name
+        persistent_dir.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(tmp_path, persistent_dir, dirs_exist_ok=True)
+        print(f"Temporary output files have been copied to: {persistent_dir}")
 
 
 def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
@@ -59,7 +83,7 @@ def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
 @pytest.mark.parametrize(argnames=['sites_suffix', 'vcf_info'],
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
-def test_genotype_filter(tmp_data_dir, sites_suffix, vcf_info):
+def test_genotype_filter(temporary_path, sites_suffix, vcf_info):
     """
     Test for the genotype filter of the VCF files
 
@@ -67,9 +91,9 @@ def test_genotype_filter(tmp_data_dir, sites_suffix, vcf_info):
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(tmp_data_dir, Path('/test/'))
+    test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
-    tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
+    tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
@@ -89,7 +113,7 @@ def test_genotype_filter(tmp_data_dir, sites_suffix, vcf_info):
 @pytest.mark.parametrize(argnames=['sites_suffix', 'vcf_info'],
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
-def test_set_missingness_values(tmp_data_dir, sites_suffix, vcf_info):
+def test_set_missingness_values(temporary_path, sites_suffix, vcf_info):
     """
     Create and set missingness values in the VCF file
 
@@ -97,9 +121,9 @@ def test_set_missingness_values(tmp_data_dir, sites_suffix, vcf_info):
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(tmp_data_dir, Path('/test/'))
+    test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
-    tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
+    tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
@@ -121,7 +145,7 @@ def test_set_missingness_values(tmp_data_dir, sites_suffix, vcf_info):
 @pytest.mark.parametrize(argnames=['sites_suffix', 'vcf_info'],
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
-def test_set_id(tmp_data_dir, sites_suffix, vcf_info):
+def test_set_id(temporary_path, sites_suffix, vcf_info):
     """
     Ensure variant IDs are properly formatted
 
@@ -129,9 +153,9 @@ def test_set_id(tmp_data_dir, sites_suffix, vcf_info):
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(tmp_data_dir, Path('/test/'))
+    test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
-    tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
+    tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
@@ -151,7 +175,7 @@ def test_set_id(tmp_data_dir, sites_suffix, vcf_info):
 @pytest.mark.parametrize(argnames=['sites_suffix', 'vcf_info'],
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
-def test_set_filter_flags(tmp_data_dir, sites_suffix, vcf_info):
+def test_set_filter_flags(temporary_path, sites_suffix, vcf_info):
     """
     Ensure the filter flags are working correctly
 
@@ -159,9 +183,9 @@ def test_set_filter_flags(tmp_data_dir, sites_suffix, vcf_info):
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(tmp_data_dir, Path('/test/'))
+    test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
-    tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
+    tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
@@ -188,7 +212,7 @@ def test_set_filter_flags(tmp_data_dir, sites_suffix, vcf_info):
 @pytest.mark.parametrize(argnames=['sites_suffix', 'vcf_info'],
                          argvalues=zip(['.sites.tsv', '.sites.tsv'], EXPECTED_VCF_VALUES)
                          )
-def test_write_index(tmp_data_dir, sites_suffix, vcf_info):
+def test_write_index(temporary_path, sites_suffix, vcf_info):
     """
     Ensure the index file gets created
 
@@ -196,9 +220,9 @@ def test_write_index(tmp_data_dir, sites_suffix, vcf_info):
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(tmp_data_dir, Path('/test/'))
+    test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
-    tmp_vcf, tmp_idx = make_vcf_link(tmp_data_dir, vcf_info["vcf"], vcf_info["index"])
+    tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 

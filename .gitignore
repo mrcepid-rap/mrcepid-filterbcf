@@ -6,3 +6,7 @@ filterbcf/methods/__pycache__/
 .DS_Store
 test/__pycache__/
 test/test_data/reference.fasta
+test/loftee_files
+test/vep_caches
+test/reference.fasta.fai
+test/reference.fasta
