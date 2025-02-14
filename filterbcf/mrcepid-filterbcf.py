@@ -38,28 +38,40 @@ class ProcessedReturn(TypedDict):
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
-                cmd_executor: CommandExecutor, cadd_executor: CommandExecutor, gq: int, wes: bool,
-                testing: bool) -> ProcessedReturn:
+                cmd_executor: CommandExecutor, gq: int, wes: bool) -> ProcessedReturn:
+    """
+    Process a VCF file by performing normalization, filtering, and annotation.
+
+    This function downloads a VCF file, applies filtering based on genotype quality (GQ) and depth (DP),
+    and annotates the VCF file with additional annotations. It is designed to be executed by individual threads.
+
+    :param vcf: The name of the VCF file to be processed.
+    :param additional_annotations: A list of additional annotations to be applied to the VCF file.
+    :param cmd_executor: An instance of CommandExecutor to run commands.
+    :param gq: The genotype quality threshold for filtering.
+    :param wes: A boolean flag indicating if the VCF is from whole exome sequencing data.
+    :return: A dictionary containing processed VCF information including chromosome, start, end, VCF prefix,
+             output BCF file, output BCF index, output VEP file, and output VEP index.
+    """
+
     # Download the VCF file chunk to the instance
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
 
     # 1. Do normalisation and filtering
-    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes, testing)
+    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes)
 
-    # We need to pause here in each thread to make sure that CADD and VEP files have downloaded in separate threads...
-    # We know that when the original .tar.gz files are gone it is safe proceed; deleting these files is the final step
-    # of the download process.
+    # We need to pause here in each thread to make sure that VEP files have downloaded in separate threads...
+    # We know that when the original .tar.gz files are gone it is safe to proceed; deleting these files is the final
+    # step of the download process.
     downloads = [Path('reference.fasta.gz'),
                  Path('loftee_hg38.tar.gz'),
-                 Path('homo_sapiens_vep_108_GRCh38.tar.gz'),
-                 Path('annotationsGRCh38_v1.6.tar.gz')]
-    cadd_index = Path('cadd_precomputed/gnomad.genomes.r3.0.indel.tsv.gz.tbi')
+                 Path('homo_sapiens_vep_108_GRCh38.tar.gz')]
 
-    while True in [file.exists() for file in downloads] and cadd_index.exists() is False:
+    while True in [file.exists() for file in downloads]:
         sleep(5)
 
     # 2. Do annotation
-    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor, cadd_executor)
+    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
@@ -73,19 +85,35 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
 
 @dxpy.entry_point('main')
 def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_reference_index: dict,
-         vep_cache: dict, loftee_libraries: dict, cadd_annotations: dict, precomputed_cadd_snvs: dict,
-         precomputed_cadd_indels: dict, additional_annotations: List[dict], gq, wes):
+         vep_cache: dict, loftee_libraries: dict, additional_annotations: List[dict], gq, wes):
+    """
+    Main entry point for processing multiple VCF files on DNA Nexus.
+
+    This function sets up the necessary resources and threads to process multiple VCF files. It handles downloading
+    required reference files, launching threads for VCF processing, and collecting the results.
+
+    :param input_vcfs: A dictionary of input VCF files to be processed.
+    :param coordinates_name: The name of the file to write the coordinates of processed VCF chunks.
+    :param human_reference: A dictionary containing the human reference genome file.
+    :param human_reference_index: A dictionary containing the index file for the human reference genome.
+    :param vep_cache: A dictionary containing the VEP cache files.
+    :param loftee_libraries: A dictionary containing the LOFTEE libraries.
+    :param additional_annotations: A list of additional annotations to be applied to the VCF files.
+    :param gq: The genotype quality threshold for filtering.
+    :param wes: A boolean flag indicating if the VCF is from whole exome sequencing data.
+    :return: A dictionary containing links to the output BCF files, their indexes, VEP files, and the coordinates file.
+    """
+
     # Build a thread worker that contains as many threads, divided by 2 that have been requested since each bcftools
     # 1 thread for monitoring threads
-    # 2 threads for downloading (1 each for CADD and VEP)
+    # 1 thread for downloading (VEP)
     # 2 threads for each BCF
     thread_utility = ThreadUtility(thread_factor=4, error_message='A bcffiltering thread failed', incrementor=5)
 
     # Separate function to acquire necessary resource files
     # We pass the above thread utility here to ensure that the download threads are managed by the same thread utility
     ingested_data = IngestData(input_vcfs, human_reference, human_reference_index, vep_cache, loftee_libraries,
-                               cadd_annotations, precomputed_cadd_snvs, precomputed_cadd_indels, additional_annotations,
-                               thread_utility)
+                               additional_annotations, thread_utility)
 
     # And launch the requested threads
     for input_vcf in ingested_data.input_vcfs:
@@ -93,7 +121,6 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                                   vcf=input_vcf,
                                   additional_annotations=ingested_data.annotations,
                                   cmd_executor=ingested_data.cmd_executor,
-                                  cadd_executor=ingested_data.cadd_executor,
                                   gq=gq,
                                   wes=wes)
 

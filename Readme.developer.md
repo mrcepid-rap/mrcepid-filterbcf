@@ -10,13 +10,7 @@ for developers or advanced users, for example:
 
 ## Testing
 
-Note for development: for some unit tests the test data might be living on GCloud (if it's very large).
-If you would like to gain access, please contact Eugene Gardner.
-If you already have access to GCloud, run this command in the `/test_data/` directory:
-
-```
-gcloud storage rsync gs://iiuk-human-genetics/Syris/test_data/filterbcf .
-```
+Tests can be run using data in the `test_data` directory. 
 
 ## Running this app with additional computational resources
 
