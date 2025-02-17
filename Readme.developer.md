@@ -22,8 +22,6 @@ certain dependency files to be in a certain order. The correct folder structure 
   - reference.fasta.fai
   - loftee_files/
     - loftee_hg38/
-    - loftee_hg38.tar.gz
   - vep_caches/
     - homo_sapiens/
-    - homo_sapiens_vep_108_GRCh38.tar.gz
 ```

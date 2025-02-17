@@ -412,6 +412,6 @@ class VCFAnnotate:
             held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
             writer_csv.writerow(held_rec)
 
-        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2, dna_nexus_run=dna_nexus_run)
+        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2)
 
         return vep_gz, vep_gz_idx

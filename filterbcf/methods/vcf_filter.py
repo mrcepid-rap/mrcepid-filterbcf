@@ -1,5 +1,4 @@
 from pathlib import Path
-
 from general_utilities.job_management.command_executor import CommandExecutor
 
 
@@ -135,7 +134,7 @@ class VCFFilter:
         """Set pass/fail filters within the filtered VCF
 
         BCFTools flags used in this function:
-        
+
         -s : sets SITES that fail the filtering expression from -i are set to FAIL
         -i : only include sites as PASS if they meet these requirements
             F_MISSING : Only include sits with less than 50% missing genotypes

@@ -1,6 +1,23 @@
 """
-Note: these tests take a little while (~1 minute) as we are dealing with very large files.
+NOTE: running these tests requires quite a bit of setup, namely downloading the correct files
+and ensuring correct folder structure. Please refer to the developers README for a folder schema that will work with
+these tests.
+
+In brief, you will need to download the following files:
+* LOFTEE hg38 files
+* VEP cache files (homo_sapiens_vep_108_GRCh38)
+* 1000G reference fasta
+
+These should live in the following directories, respectively:
+* test/loftee_files/loftee_hg38
+* test/vep_caches/homo_sapiens
+* test/reference.fasta
+* test/reference.fasta.fai
+
+Additional note: these tests take a little while (~1 minute) as we are dealing with very large files.
 If you want to keep the output of these tests, change the flag KEEP_TEMP to True.
+
+The recommendation is to run tests for the whole file, to ensure the flow of data.
 """
 import os
 import shutil
@@ -19,6 +36,11 @@ test_data_dir = Path(__file__).parent
 # Set this flag to True if you want to keep (copy) the temporary output files
 KEEP_TEMP = False
 
+# ensure the necessary test files exist
+assert Path("test/loftee_files/loftee_hg38/").exists
+assert Path("test/vep_caches/homo_sapiens/").exists
+assert Path("test/reference.fasta").exists
+assert Path("test/reference.fasta.fai").exists
 
 @pytest.fixture
 def temporary_path(tmp_path, monkeypatch):
@@ -64,18 +86,18 @@ def temporary_path(tmp_path, monkeypatch):
     [
         (
                 Path('/test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
-                'test_input1.vcf.sites.vcf.gz',
-                'test_input1.vcf.vep_table.tsv',
+                Path('test_input1.vcf.sites.vcf.gz'),
+                Path('test_input1.vcf.vep_table.tsv'),
         ),
         (
                 Path('/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
-                'test_input2.vcf.sites.vcf.gz',
-                'test_input2.vcf.vep_table.tsv',
+                Path('test_input2.vcf.sites.vcf.gz'),
+                Path('test_input2.vcf.vep_table.tsv'),
         ),
     ]
 )
-def test_vcf_annotator(temporary_path, vcf_filename, expected_chrom, expected_start, expected_end,
-                       expected_vep, final_vep_file):
+def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom: str, expected_start: int, expected_end: int,
+                       expected_vep: Path, final_vep_file: Path):
     """
     Test the VCFAnnotate class and its methods.
 
@@ -157,7 +179,7 @@ def test_vcf_annotator(temporary_path, vcf_filename, expected_chrom, expected_st
         'BIOTYPE': 'protein_coding',
         'CANONICAL': 'YES',
         'SYMBOL': 'CCNA1',
-        'CSQ': '5_prime_UTR_variant',
+        'CSQ': 'stop_gained',
         'SIFT': '.',
         'POLYPHEN': '.',
         'LOFTEE': '.',
@@ -187,7 +209,7 @@ def test_vcf_annotator(temporary_path, vcf_filename, expected_chrom, expected_st
         'BIOTYPE': 'protein_coding',
         'CANONICAL': 'YES',
         'SYMBOL': 'CCNA1',
-        'CSQ': '5_prime_UTR_variant',
+        'CSQ': 'stop_gained',
         'SIFT': 'NA',
         'POLYPHEN': 'NA',
         'LOFTEE': 'NA',
