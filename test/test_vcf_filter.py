@@ -1,7 +1,7 @@
 import shutil
 from collections import Counter
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Dict, Any
 
 import pytest
 from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
@@ -108,7 +108,7 @@ def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
                                'index': test_data_dir / 'test_input2.vcf.gz.tbi',
                                'fail': 0}, False, 20, 1312820),
                          ])
-def test_genotype_filter(temporary_path, vcf_info, wes, gq, gt_none):
+def test_genotype_filter(temporary_path: Path, vcf_info: Dict[str, Any], wes: bool, gq: int, gt_none: int) -> None:
     """
     Test for the genotype filter of the VCF files. We are testing to ensure that the genotype filter is working.
 
