@@ -127,7 +127,7 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     class_loaded = VCFFilter(vcf_filename, cmd_exec, gq=20, wes=True, testing=True)
 
     vcf_annotator = VCFAnnotate(vcf_filename, class_loaded.filtered_vcf, additional_annotations=[],
-                                cmd_executor=cmd_exec, dna_nexus_run=False)
+                                cmd_executor=cmd_exec)
     print("VCF Annotator class loaded successfully")
 
     # test for defining the VEP scores
