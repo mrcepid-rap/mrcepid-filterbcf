@@ -1,7 +1,7 @@
 import shutil
 from collections import Counter
 from pathlib import Path
-from typing import Tuple, Dict, Any
+from typing import Tuple
 
 import pytest
 from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
@@ -90,15 +90,7 @@ def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
                              ({'final': 417, 'original': 410,
                                'vcf': test_data_dir / 'test_input2.vcf.gz',
                                'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                               'fail': 0}, True, 20, 213337),
-                             ({'final': 845, 'original': 835,
-                               'vcf': test_data_dir / 'test_input1.vcf.gz',
-                               'index': test_data_dir / 'test_input1.vcf.gz.tbi',
-                               'fail': 1}, True, 10, 199157),
-                             ({'final': 417, 'original': 410,
-                               'vcf': test_data_dir / 'test_input2.vcf.gz',
-                               'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                               'fail': 0}, True, 90, 762698),
+                               'fail': 0}, False, 20, 1312820),
                              ({'final': 845, 'original': 835,
                                'vcf': test_data_dir / 'test_input1.vcf.gz',
                                'index': test_data_dir / 'test_input1.vcf.gz.tbi',
@@ -106,9 +98,17 @@ def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
                              ({'final': 417, 'original': 410,
                                'vcf': test_data_dir / 'test_input2.vcf.gz',
                                'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                               'fail': 0}, False, 20, 1312820),
+                               'fail': 0}, True, 90, 762698),
+                             ({'final': 845, 'original': 835,
+                               'vcf': test_data_dir / 'test_input1.vcf.gz',
+                               'index': test_data_dir / 'test_input1.vcf.gz.tbi',
+                               'fail': 1}, True, 10, 199157),
+                             ({'final': 417, 'original': 410,
+                               'vcf': test_data_dir / 'test_input2.vcf.gz',
+                               'index': test_data_dir / 'test_input2.vcf.gz.tbi',
+                               'fail': 0}, True, 20, 213337),
                          ])
-def test_genotype_filter(temporary_path: Path, vcf_info: Dict[str, Any], wes: bool, gq: int, gt_none: int) -> None:
+def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_none: int) -> None:
     """
     Test for the genotype filter of the VCF files. We are testing to ensure that the genotype filter is working.
 
