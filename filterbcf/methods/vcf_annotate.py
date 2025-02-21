@@ -250,7 +250,7 @@ class VCFAnnotate:
               f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv}'  # -1 due to 0-based idx
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2, cmd_exec=self._cmd_executor)
+        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)
 
         if annotation['symbol_mode']:
             # VEP uses 'Feature' to denote the gene transcript, but we need to match on ENST
@@ -412,6 +412,6 @@ class VCFAnnotate:
             held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
             writer_csv.writerow(held_rec)
 
-        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2, cmd_exec=self._cmd_executor)
+        vep_gz, vep_gz_idx = bgzip_and_tabix(annote_file, comment_char='C', end_row=2)
 
         return vep_gz, vep_gz_idx
