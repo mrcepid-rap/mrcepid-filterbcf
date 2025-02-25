@@ -34,19 +34,19 @@ class VCFFilter:
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
 
-        self.close(testing)
+        self.close()
 
-    def close(self, testing: bool = False) -> None:
+    def close(self) -> None:
         """
         If running the applet, close the class and delete any temporary files that were created
         If running a test, do nothing (the temporary directory will be deleted once the tests are complete) - see
         pytest documentation for more information on this.
         """
-        if testing is False:
+        if self.testing is False:
             for file in self._files_to_close:
                 file.unlink()
 
-    def _genotype_filter(self, input_vcf: Path, gq: int, wes: bool, testing: bool = False) -> Path:
+    def _genotype_filter(self, input_vcf: Path, gq: int, wes: bool) -> Path:
         """Do genotype level filtering using bcftools filter.
 
         BCFTools flags used in this function:
@@ -90,9 +90,7 @@ class VCFFilter:
 
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        # delete the input vcf file if not testing
-        if not self.testing:
-            input_vcf.unlink()
+        # append a list of files to close (to save space)
         self._files_to_close.append(input_vcf)
 
         return output_vcf
@@ -119,9 +117,7 @@ class VCFFilter:
               f'-o /test/{output_vcf} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        # delete the input vcf file if not testing
-        if not self.testing:
-            input_vcf.unlink()
+        # append a list of files to close (to save space)
         self._files_to_close.append(input_vcf)
 
         return output_vcf
@@ -140,9 +136,7 @@ class VCFFilter:
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        # delete the input vcf file if not testing
-        if not self.testing:
-            input_vcf.unlink()
+        # append a list of files to close (to save space)
         self._files_to_close.append(input_vcf)
 
         return output_vcf
@@ -166,9 +160,7 @@ class VCFFilter:
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        # delete the input vcf file if not testing
-        if not self.testing:
-            input_vcf.unlink()
+        # append a list of files to close (to save space)
         self._files_to_close.append(input_vcf)
 
         return output_vcf
