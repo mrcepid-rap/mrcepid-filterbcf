@@ -1,7 +1,7 @@
 import shutil
 from collections import Counter
 from pathlib import Path
-from typing import Tuple
+from typing import Tuple, Generator, Dict
 
 import pytest
 from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
@@ -30,7 +30,7 @@ for vcf_data in EXPECTED_VCF_VALUES:
 
 
 @pytest.fixture
-def temporary_path(tmp_path, monkeypatch):
+def temporary_path(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Generator[Path, None, None]:
     """
     Prepare a temporary working directory that contains a copy of the test_data
     directory, then change the working directory to it.
@@ -64,7 +64,7 @@ def temporary_path(tmp_path, monkeypatch):
         print(f"Temporary output files have been copied to: {persistent_dir}")
 
 
-def make_vcf_link(tmp_dir, vcf, idx) -> Tuple[Path, Path]:
+def make_vcf_link(tmp_dir: Path, vcf: Path, idx: Path) -> Tuple[Path, Path]:
     """Helper function to get the VCF file and index being tested into a tmp directory.
 
     :param tmp_dir: The tmp_dir provided by tmp_path_factory in pytest
@@ -178,8 +178,9 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_
          14.743444535706658,
          2614092)
     ])
-def test_set_missingness_values(temporary_path, vcf_info, expected_fmissing, expected_gt0, expected_gt1, expected_gt2,
-                                expected_ac, expected_af, expected_an):
+def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_fmissing: float, expected_gt0: int,
+                                expected_gt1: int, expected_gt2: int, expected_ac: int, expected_af: float,
+                                expected_an: int) -> None:
     """
     Create and set missingness values in the VCF file
 
@@ -267,7 +268,7 @@ def test_set_missingness_values(temporary_path, vcf_info, expected_fmissing, exp
 
 @pytest.mark.parametrize(argnames='vcf_info',
                          argvalues=EXPECTED_VCF_VALUES)
-def test_set_id(temporary_path, vcf_info):
+def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
     """
     Ensure variant IDs are properly formatted
 
@@ -299,7 +300,7 @@ def test_set_id(temporary_path, vcf_info):
 
 @pytest.mark.parametrize(argnames='vcf_info',
                          argvalues=EXPECTED_VCF_VALUES)
-def test_set_filter_flags(temporary_path, vcf_info):
+def test_set_filter_flags(temporary_path: Path, vcf_info: Dict) -> None:
     """
     Ensure the filter flags are working correctly
 
@@ -335,7 +336,7 @@ def test_set_filter_flags(temporary_path, vcf_info):
 
 @pytest.mark.parametrize(argnames='vcf_info',
                          argvalues=EXPECTED_VCF_VALUES)
-def test_write_index(temporary_path, vcf_info):
+def test_write_index(temporary_path: Path, vcf_info: Dict) -> None:
     """
     Ensure the index file gets created
 
