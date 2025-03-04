@@ -161,7 +161,7 @@
       {
         "name": "filterbcf",
         "package_manager": "git",
-        "url":  "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
+        "url": "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
         "tag": "v1.1.0",
         "build_commands": "pip3 install ."
       }

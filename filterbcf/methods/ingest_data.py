@@ -1,13 +1,11 @@
 import csv
-
-import dxpy
 import gzip
 from pathlib import Path
 from typing import List, TypedDict, Tuple, Optional
 
+import dxpy
 from general_utilities.association_resources import find_index, download_dxfile_by_name
-from general_utilities.job_management.command_executor import build_default_command_executor, DockerMount, \
-    CommandExecutor
+from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
 
