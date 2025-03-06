@@ -34,13 +34,14 @@ from filterbcf.methods.vcf_filter import VCFFilter
 test_data_dir = Path(__file__).parent
 
 # Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = False
+KEEP_TEMP = True
 
 # ensure the necessary test files exist
 assert Path("test/loftee_files/loftee_hg38/").exists
 assert Path("test/vep_caches/homo_sapiens/").exists
 assert Path("test/reference.fasta").exists
 assert Path("test/reference.fasta.fai").exists
+
 
 @pytest.fixture
 def temporary_path(tmp_path, monkeypatch):
@@ -82,22 +83,32 @@ def temporary_path(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     "vcf_filename, expected_chrom, expected_start, expected_end, expected_vep,"
-    "final_vep_file",
+    "final_vep_file, number_of_variants, vep_table_length, vep_unique_variants_length,"
+    "vep_unique_pass_variants",
     [
         (
                 Path('/test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
                 Path('test_input1.vcf.sites.vcf.gz'),
                 Path('test_input1.vcf.vep_table.tsv'),
+                907,
+                9597,
+                875,
+                777
         ),
         (
                 Path('/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
                 Path('test_input2.vcf.sites.vcf.gz'),
                 Path('test_input2.vcf.vep_table.tsv'),
+                558,
+                2179,
+                504,
+                461
         ),
     ]
 )
-def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom: str, expected_start: int, expected_end: int,
-                       expected_vep: Path, final_vep_file: Path):
+def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom: str, expected_start: int,
+                       expected_end: int, expected_vep: Path, final_vep_file: Path, number_of_variants: int,
+                       vep_table_length: int, vep_unique_variants_length: int, vep_unique_pass_variants: int):
     """
     Test the VCFAnnotate class and its methods.
 
@@ -240,6 +251,9 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     assert Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz').exists()
     print("Sites file exists")
 
+    variants_df = read_vcf_as_dataframe(Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz'))
+    assert len(variants_df) == number_of_variants
+
     # test for getting bcf information
     # Call the method
     chrom, start, end = vcf_annotator._get_bcf_information(Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz'))
@@ -250,10 +264,6 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     assert end == expected_end
     print("BCF information parsed correctly")
 
-    # test running VEP site file generation
-    # make sure the file exists
-    output_vep = Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz')
-    assert output_vep.exists()
     # read in the expected file
     expected_vep = test_data_dir / 'test_data/expected_outputs' / expected_vep
     vcf1 = pysam.VariantFile(expected_vep)
@@ -265,12 +275,20 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
             print(f"Record 1: {rec1}")
             print(f"Record 2: {rec2}")
             assert rec1 == rec2, f"Records do not match: {rec1} != {rec2}"
-    assert sum(1 for _ in vcf1.fetch()) == sum(1 for _ in vcf2.fetch()), "Number of records do not match"
     print("VEP summary generated")
 
     # test parsing the final VEP file
     # make sure it exists
     assert Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv').exists()
+    vep_table = pd.read_csv(Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv'), sep='\t')
+    # assert table length
+    assert len(vep_table) == vep_table_length
+    # assert number of unique variants
+    assert len(vep_table[['#[1]CHROM', '[2]POS', '[3]REF', '[4]ALT']].drop_duplicates()) == vep_unique_variants_length
+    # assert number of unique variants that have passed the quality filter
+    assert len(vep_table[vep_table['[6]FILTER'] == 'PASS', ['#[1]CHROM', '[2]POS', '[3]REF',
+                                                            '[4]ALT']].drop_duplicates()) == vep_unique_pass_variants
+
     # make sure the final VEP files are being properly created
     # read in the expected file
     final_vep_file = test_data_dir / 'test_data/expected_outputs' / final_vep_file
@@ -280,3 +298,37 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     # make sure they are the same
     pd.testing.assert_frame_equal(df1, df2, check_like=True)
     print("VEP TSV files have been created successfully")
+
+
+def read_vcf_as_dataframe(vcf_file_path: Path):
+    """
+    A way to read VCF files as pandas dataframes
+
+    :param vcf_file_path: filepath to a VCF file
+    :return: a pandas dataframe
+    """
+    # Open the VCF file using pysam
+    vcf_in = pysam.VariantFile(vcf_file_path)
+
+    # Initialize a list to store the records
+    records = []
+
+    # Iterate through each record in the VCF file
+    for record in vcf_in.fetch():
+        # Extract the necessary information from each record
+        rec = {
+            'CHROM': record.chrom,
+            'POS': record.pos,
+            'ID': record.id,
+            'REF': record.ref,
+            'ALT': ','.join(str(alt) for alt in record.alts),
+            'QUAL': record.qual,
+            'FILTER': ';'.join(record.filter.keys()),
+            'INFO': ';'.join(f'{key}={value}' for key, value in record.info.items())
+        }
+        records.append(rec)
+
+    # Convert the list of records to a pandas DataFrame
+    df = pd.DataFrame(records)
+
+    return df
