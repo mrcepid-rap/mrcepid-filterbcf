@@ -1,22 +1,12 @@
-# Log files
 dx_run.log
-
-# Dependency files
 poetry.lock
-
-# IDE files
 .idea/
-
-# Python cache files
 filterbcf/__pycache__/
 filterbcf/methods/__pycache__/
-test/__pycache__/
-
-# macOS files
 .DS_Store
-
-# Test files
-test/reference.fasta
-test/reference.fasta.fai
+test/__pycache__/
+test/test_data/reference.fasta
 test/loftee_files
 test/vep_caches
+test/reference.fasta.fai
+test/reference.fasta
