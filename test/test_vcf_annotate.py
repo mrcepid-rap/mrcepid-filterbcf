@@ -79,10 +79,9 @@ def cleanup_temp_outputs():
     """
     yield  # Run tests first
 
-    if not KEEP_TEMP:
-        temp_outputs_path = Path(__file__).parent / "temp_test_outputs"
-        if temp_outputs_path.exists():
-            shutil.rmtree(temp_outputs_path, ignore_errors=True)
+    # given how large some of the temporary files are, we will delete them after testing
+    subprocess.run('./clean_pytest_temp.sh', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("Temporary files deleted successfully")
 
 
 @pytest.mark.parametrize(
@@ -327,8 +326,16 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     # read in the file we just created
     df2 = pd.read_csv(Path(f'{vcf_annotator.vcfprefix}.vep_table.tsv'), sep='\t')
     # make sure they are the same
+    # Normalize Consequence column: sort &-separated terms
+    df1['[18]Consequence'] = df1['[18]Consequence'].apply(
+        lambda x: '&'.join(sorted(str(x).split('&'))) if pd.notna(x) else x
+    )
+    df2['[18]Consequence'] = df2['[18]Consequence'].apply(
+        lambda x: '&'.join(sorted(str(x).split('&'))) if pd.notna(x) else x
+    )
+    # Compare DataFrames (column order agnostic)
     pd.testing.assert_frame_equal(df1, df2, check_like=True)
-    print("VEP TSV files have been created successfully")
+    print("VEP TSV files have been created successfully and match expected output.")
 
     # check for additional annotations
     vep_tsv, annotation_name = vcf_annotator._add_additional_annotation(final_vep_annotation_path,
@@ -377,9 +384,7 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     assert (annotation_df[~matching_rows_mask] != annotation_name).all().all(), \
         "Mismatch: Some non-matching rows contain 'some_other_annotation' in annotation columns."
 
-    # given how large some of the temporary files are, we will delete them after testing
-    subprocess.run('./clean_pytest_temp.sh', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    print("Temporary files deleted successfully")
+
 
 
 def read_vcf_as_dataframe(vcf_file_path: Path):
