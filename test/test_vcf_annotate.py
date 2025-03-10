@@ -21,6 +21,7 @@ The recommendation is to run tests for the whole file, to ensure the flow of dat
 """
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 import pandas as pd
@@ -33,58 +34,62 @@ from filterbcf.methods.vcf_filter import VCFFilter
 
 test_data_dir = Path(__file__).parent
 
-# Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = True
-
 # ensure the necessary test files exist
 assert Path("test/loftee_files/loftee_hg38/").exists
 assert Path("test/vep_caches/homo_sapiens/").exists
 assert Path("test/reference.fasta").exists
 assert Path("test/reference.fasta.fai").exists
 
+# Set this flag to True if you want to keep (copy) the temporary output files
+KEEP_TEMP = False  # or True if needed
+
 
 @pytest.fixture
 def temporary_path(tmp_path, monkeypatch):
-    """
-    Prepare a temporary working directory by copying everything from the project root
-    (i.e. the test directory where this file lives) into the temporary directory.
-
-    This way, every file and folder (including reference.fasta, vep_caches, loftee_files,
-    test_data, etc.) is available in the temporary directory. The working directory is
-    then changed to the temporary directory.
-
-    If KEEP_TEMP is True, after the test the entire temporary directory is copied to a
-    folder 'temp_test_outputs' in the project root.
-    """
-    # Define the project root (where this file lives)
     project_root = Path(__file__).parent
 
-    # Iterate over every item in the project root and copy it to the temporary directory.
+    # Skip copying `temp_test_outputs` directory to avoid recursion
     for item in project_root.iterdir():
+        if item.name == "temp_test_outputs":
+            continue  # skip this
         dest = tmp_path / item.name
         if item.is_dir():
             shutil.copytree(item, dest)
         else:
             shutil.copy2(item, dest)
 
-    # Change the current working directory to the temporary directory.
     monkeypatch.chdir(tmp_path)
 
-    # Yield the temporary directory to the test.
     yield tmp_path
 
-    # After the test, if KEEP_TEMP is True, copy the temporary directory to a persistent location.
     if KEEP_TEMP:
         persistent_dir = project_root / "temp_test_outputs" / tmp_path.name
-        persistent_dir.parent.mkdir(exist_ok=True)
-        shutil.copytree(tmp_path, persistent_dir, dirs_exist_ok=True)
-        print(f"Temporary output files have been copied to: {persistent_dir}")
+        persistent_dir.parent.mkdir(parents=True, exist_ok=True)
+        # Only copy selected outputs if needed
+        try:
+            shutil.copytree(tmp_path, persistent_dir, dirs_exist_ok=True)
+        except OSError as e:
+            print(f"Warning: could not copy temp files: {e}")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def cleanup_temp_outputs():
+    """
+    Delete temp_test_outputs folder at the end of the test session (only if KEEP_TEMP is False).
+    """
+    yield  # Run tests first
+
+    if not KEEP_TEMP:
+        temp_outputs_path = Path(__file__).parent / "temp_test_outputs"
+        if temp_outputs_path.exists():
+            shutil.rmtree(temp_outputs_path, ignore_errors=True)
 
 
 @pytest.mark.parametrize(
     "vcf_filename, expected_chrom, expected_start, expected_end, expected_vep,"
     "final_vep_file, number_of_variants, vep_table_length, vep_unique_variants_length,"
-    "vep_unique_pass_variants",
+    "vep_unique_pass_variants, annotation_dict, final_vep_annotation_path,"
+    "annotation_name, expected_number_of_annotations",
     [
         (
                 Path('/test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
@@ -93,7 +98,17 @@ def temporary_path(tmp_path, monkeypatch):
                 907,
                 9597,
                 875,
-                777
+                777,
+                {
+                    'file': Path('test_data/anno1.tsv.gz'),
+                    'index': Path('test_data/anno1.tsv.gz.tbi'),
+                    'annotation_name': 'some_annotation',
+                    'header_file': "##INFO=<ID=SANNO,Number=1,Type=String,Description='SANNO annotation.'>",
+                    'symbol_mode': ''
+                },
+                Path('test_data/expected_outputs/test_input1.vcf.vep_table.tsv'),
+                'some_annotation',
+                9136,
         ),
         (
                 Path('/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
@@ -102,13 +117,25 @@ def temporary_path(tmp_path, monkeypatch):
                 558,
                 2179,
                 504,
-                461
+                461,
+                {
+                    'file': Path('test_data/anno2.tsv.gz'),
+                    'index': Path('test_data/anno2.tsv.gz.tbi'),
+                    'annotation_name': 'some_other_annotation',
+                    'header_file': "##INFO=<ID=SMANNO,Number=1,Type=String,Description='SMANNO annotation.'>",
+                    'symbol_mode': 'ENST'
+                },
+                Path('test_data/expected_outputs/test_input2.vcf.vep_table.tsv'),
+                'some_other_annotation',
+                1089,
         ),
     ]
 )
 def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom: str, expected_start: int,
                        expected_end: int, expected_vep: Path, final_vep_file: Path, number_of_variants: int,
-                       vep_table_length: int, vep_unique_variants_length: int, vep_unique_pass_variants: int):
+                       vep_table_length: int, vep_unique_variants_length: int, vep_unique_pass_variants: int,
+                       annotation_dict: dict, final_vep_annotation_path: Path, annotation_name: str,
+                       expected_number_of_annotations: int):
     """
     Test the VCFAnnotate class and its methods.
 
@@ -264,6 +291,10 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     assert end == expected_end
     print("BCF information parsed correctly")
 
+    # test running VEP site file generation
+    # make sure the file exists
+    output_vep = Path(f'{vcf_annotator.vcfprefix}.sites.vcf.gz')
+    assert output_vep.exists()
     # read in the expected file
     expected_vep = test_data_dir / 'test_data/expected_outputs' / expected_vep
     vcf1 = pysam.VariantFile(expected_vep)
@@ -286,8 +317,8 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     # assert number of unique variants
     assert len(vep_table[['#[1]CHROM', '[2]POS', '[3]REF', '[4]ALT']].drop_duplicates()) == vep_unique_variants_length
     # assert number of unique variants that have passed the quality filter
-    assert len(vep_table[vep_table['[6]FILTER'] == 'PASS', ['#[1]CHROM', '[2]POS', '[3]REF',
-                                                            '[4]ALT']].drop_duplicates()) == vep_unique_pass_variants
+    assert len(vep_table[vep_table['[6]FILTER'] == 'PASS'][
+                   ['#[1]CHROM', '[2]POS', '[3]REF', '[4]ALT']].drop_duplicates()) == vep_unique_pass_variants
 
     # make sure the final VEP files are being properly created
     # read in the expected file
@@ -298,6 +329,57 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     # make sure they are the same
     pd.testing.assert_frame_equal(df1, df2, check_like=True)
     print("VEP TSV files have been created successfully")
+
+    # check for additional annotations
+    vep_tsv, annotation_name = vcf_annotator._add_additional_annotation(final_vep_annotation_path,
+                                                                        annotation_dict)
+
+    # make sure the file exists
+    assert Path(vep_tsv).exists()
+
+    # make sure the new column is in the file
+    df = pd.read_csv(vep_tsv, sep='\t')
+    assert any(annotation_name in col for col in df.columns)
+
+    # pull out the column indices containing the annotation_name
+    annotation_indices = [i for i, col in enumerate(df.columns) if annotation_name in col]
+    # make sure number of annotations is correct
+    # Count number of cells in those columns that have value equal to annotation_name
+    count = sum(
+        (df.iloc[:, idx] == annotation_name).sum()
+        for idx in annotation_indices
+    )
+    # Assert that this count matches your expected number
+    assert count == expected_number_of_annotations, f"Expected {expected_number_of_annotations}, but got {count}"
+
+    # make sure the annotations match
+    anno = pd.read_csv(annotation_dict['file'], sep="\t")
+    if annotation_dict['symbol_mode'] == 'ENST':
+        # Create a set of keys from the annotation file
+        anno_keys = set(zip(anno["#CHROM"], anno["POS"], anno["REF"], anno["ALT"], anno["ENST"]))
+        # Create a list of keys from your main df for matching
+        df_keys = list(zip(df["#[1]CHROM"], df["[2]POS"], df["[3]REF"], df["[4]ALT"], df["[13]Feature"]))
+    else:
+        # Create a set of keys from the annotation file
+        anno_keys = set(zip(anno["#CHROM"], anno["POS"], anno["REF"], anno["ALT"]))
+        # Create a list of keys from your main df for matching
+        df_keys = list(zip(df["#[1]CHROM"], df["[2]POS"], df["[3]REF"], df["[4]ALT"]))
+    # Generate a boolean mask indicating matching rows
+    matching_rows_mask = pd.Series(df_keys).isin(anno_keys)
+    # Identify the annotation columns in your df
+    annotation_indices = [i for i, col in enumerate(df.columns) if annotation_name in col]
+    # Extract just the annotation columns from df
+    annotation_df = df.iloc[:, annotation_indices]
+    # Assert: All values in matching rows must be 'some_other_annotation'
+    assert (annotation_df[matching_rows_mask] == annotation_name).all().all(), \
+        "Mismatch: Not all matching rows contain 'some_other_annotation' in annotation columns."
+    # Assert: All values in non-matching rows must NOT be 'some_other_annotation'
+    assert (annotation_df[~matching_rows_mask] != annotation_name).all().all(), \
+        "Mismatch: Some non-matching rows contain 'some_other_annotation' in annotation columns."
+
+    # given how large some of the temporary files are, we will delete them after testing
+    subprocess.run('./clean_pytest_temp.sh', shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    print("Temporary files deleted successfully")
 
 
 def read_vcf_as_dataframe(vcf_file_path: Path):
