@@ -41,7 +41,7 @@ assert Path("test/reference.fasta").exists
 assert Path("test/reference.fasta.fai").exists
 
 # Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = False  # or True if needed
+KEEP_TEMP = True  # or True if needed
 
 
 @pytest.fixture

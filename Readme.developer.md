@@ -46,6 +46,19 @@ bcftools view test_input2.vcf.gz | \
 tabix -p vcf test_input2_wgs.vcf.gz
 ```
 
+The files may also be missing the MA tag from the header and INFO field. If so, run the following command:
+
+```
+# Normalize with bcftools and overwrite input
+for file in test_input1.vcf.gz test_input2.vcf.gz; do
+    tmp_out="tmp_${file}"
+    bcftools norm --threads 8 -w 100 -Oz -m - -f reference.fasta \
+        --old-rec-tag MA \
+        -o "$tmp_out" "$file"
+    mv "$tmp_out" "$file"
+done
+```
+
 Note that the dependency files (LOFTEE files, VEP files & reference files) should be downloaded
 separately and arranged in the way that is outlined below, to ensure successful test runs.
 
