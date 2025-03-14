@@ -1,15 +1,13 @@
 import csv
-import gzip
-import itertools
-
-from typing import TypedDict, Tuple, List
 from pathlib import Path
+from typing import TypedDict, Tuple, List
 
-from filterbcf.methods.ingest_data import AdditionalAnnotation
 from general_utilities.association_resources import generate_linked_dx_file, bgzip_and_tabix, replace_multi_suffix, \
     check_gzipped
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.mrc_logger import MRCLogger
+
+from filterbcf.methods.ingest_data import AdditionalAnnotation
 
 
 class VCFAnnotate:
@@ -131,9 +129,10 @@ class VCFAnnotate:
         # "gnomad_maf", "REVEL" "SIFT", "PolyPhen", "LoF"
         # rec['gnomad_maf'] = rec['gnomad_maf'] if rec['gnomad_maf'] != '.' else '0' # Sites w/o gnomAD don't exist in gnomAD so a MAF of 0 seems appropriate
         # rec['REVEL'] = rec['REVEL'] if rec['REVEL'] != '.' else 'NaN' # NaN is default VCF spec for missing floats
-        rec['SIFT'] = rec['SIFT'] if rec['SIFT'] != '.' else 'NA' # NA is default VCF spec for missing strings
-        rec['POLYPHEN'] = rec['POLYPHEN'] if rec['POLYPHEN'] != '.' else 'NA' # NA is default VCF spec for missing strings
-        rec['LOFTEE'] = rec['LOFTEE'] if rec['LOFTEE'] != '.' else 'NA' # NA is default VCF spec for missing strings
+        rec['SIFT'] = rec['SIFT'] if rec['SIFT'] != '.' else 'NA'  # NA is default VCF spec for missing strings
+        rec['POLYPHEN'] = rec['POLYPHEN'] if rec[
+                                                 'POLYPHEN'] != '.' else 'NA'  # NA is default VCF spec for missing strings
+        rec['LOFTEE'] = rec['LOFTEE'] if rec['LOFTEE'] != '.' else 'NA'  # NA is default VCF spec for missing strings
         rec['AA'] = rec['AA'] if rec['AA'] != '.' else 'NA'  # NA is default VCF spec for missing strings
         rec['AApos'] = rec['AApos'] if rec['AApos'] != '.' else 'NA'  # NA is default VCF spec for missing strings
 
@@ -248,10 +247,10 @@ class VCFAnnotate:
         # to the same region as the vcf to see if I can reduce memory requirements.
         sliced_tsv = replace_multi_suffix(annotation["file"], f'.{self.vcfprefix}.sliced.tsv')
         cmd = f'tabix --threads 4 -h /test/{annotation["file"]} ' \
-              f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv}' # -1 due to 0-based idx
+              f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv}'  # -1 due to 0-based idx
         self._cmd_executor.run_cmd_on_docker(cmd)
 
-        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='"#"', end_row=2)
+        sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='#', end_row=2)
 
         if annotation['symbol_mode']:
             # VEP uses 'Feature' to denote the gene transcript, but we need to match on ENST
@@ -278,13 +277,13 @@ class VCFAnnotate:
 
     def _generate_annotations_tsv(self, input_vcf: Path) -> Path:
         """Generate an output TSV after doing all annotations that we can parse for most deleterious consequence.
-        
+
         The purpose of this is to generate a TSV file of annotations that we care about to parse later :func:`_parse_vep`
         +split-vep is a bcftools plugin that iterates through VEP fields provided in a VCF via the CSQ INFO field.
         -d :  outputs duplicate transcripts on separate lines. In other words, a gene may have multiple transcripts,
         and put each transcript and CSQ on a separate line in the tsv file
         -f : CSQ fields that we want to output into the tsv file
-        
+
         :param input_vcf: VCF file that contains all annotations to add
         :return: Pathlike object of the annotation tsv
         """
@@ -333,7 +332,7 @@ class VCFAnnotate:
         # Define files:
         annote_file = Path(f'{self.vcfprefix}.vep.tsv')
 
-        with raw_vep.open('r') as annote_reader,\
+        with raw_vep.open('r') as annote_reader, \
                 annote_file.open('w') as annote_writer:
 
             reader_csv = csv.DictReader(annote_reader, delimiter='\t', fieldnames=reader_header, quoting=csv.QUOTE_NONE)
@@ -363,8 +362,8 @@ class VCFAnnotate:
                 # Set a unique record ID
                 current_rec_name = f'{rec["CHROM"]}_{rec["POS"]}_{rec["REF"]}_{rec["ALT"]}'
 
-                if current_rec_name != held_rec_name: # If ID is not the same, write currently held record and reset (steps 3 - 4)
-                    if held_rec_name != None: # Obviously, don't print if going through the first rec since there is no stored INFO yet
+                if current_rec_name != held_rec_name:  # If ID is not the same, write currently held record and reset (steps 3 - 4)
+                    if held_rec_name != None:  # Obviously, don't print if going through the first rec since there is no stored INFO yet
                         # Write the record with the most severe consequence (step 3)
                         held_rec = self._final_process_record(held_rec, held_severity_score, annotation_names)
                         writer_csv.writerow(held_rec)
