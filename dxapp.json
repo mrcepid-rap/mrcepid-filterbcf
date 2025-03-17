@@ -3,7 +3,7 @@
   "title": "FilterBCF",
   "summary": "Filter a target BCF according to parameters set by MRC Epidemiology",
   "dxapi": "1.0.0",
-  "version": "1.0.1",
+  "version": "2.0.0",
   "inputSpec": [
     {
       "name": "input_vcfs",
@@ -13,15 +13,16 @@
       "patterns": [
         "*.txt"
       ],
-      "help": "List of input BCF files from mrcepid-splitbcf."
+      "help": "File containing list of input BCF files from mrcepid-splitbcf."
     },
     {
       "name": "coordinates_name",
       "label": "Name of the output coordinates file",
       "class": "string",
-      "optional": false,
+      "optional": true,
+      "default": "coordinates.tsv",
       "patterns": [
-        "*"
+        "*.tsv"
       ],
       "help": "Name of the output coordinates file."
     },
@@ -29,7 +30,7 @@
       "name": "human_reference",
       "label": "Human reference genome",
       "class": "file",
-      "optional": true,
+      "optional": false,
       "help": "GRCh38 human reference genome",
       "default": {
         "$dnanexus_link": {
@@ -42,7 +43,7 @@
       "name": "human_reference_index",
       "label": "Human reference genome .fai index",
       "class": "file",
-      "optional": true,
+      "optional": false,
       "help": "GRCh38 human reference genome .fai index",
       "default": {
         "$dnanexus_link": {
@@ -55,92 +56,37 @@
       "name": "vep_cache",
       "label": "VEP cache from ENSEMBL",
       "class": "file",
-      "optional": true,
-      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G7FKjxjJJv8q0Q4kF1ypbKv3"
-        }
-      }
+      "optional": false,
+      "help": "Pointer to the VEP cache stored on DNA nexus."
     },
     {
       "name": "loftee_libraries",
       "label": "Precompiled LOFTEE resources",
       "class": "file",
-      "optional": true,
-      "help": "Pointer to the tar.gz file of loftee databases on DNA nexus",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G4588p0JXk8Jf9y2KG727pB6"
-        }
-      }
+      "optional": false,
+      "help": "Pointer to the tar.gz file of loftee databases on DNA nexus"
     },
     {
-      "name": "gnomad_maf_db",
-      "label": "Precompiled gnomAD MAF database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to a precompiled .tsv format file of gnomAD AFs",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45zfxjJXk8Bjjb1531PfZ2G"
-        }
-      }
-    },
-    {
-      "name": "revel_db",
-      "label": "Precompiled REVEL score database",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to a precompiled .tsv format file of REVEL scores",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G45xxKQJXk8KB6kKKG2ZQ9Zx"
-        }
-      }
-    },
-    {
-      "name": "cadd_annotations",
-      "label": "CADD annotations",
-      "class": "file",
-      "optional": true,
-      "help": "Pointer to annotations used by CADD to compute variant deleteriousness scores.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44Vjb8JGV7fYJYj35k8j9Yv"
-        }
-      }
-    },
-    {
-      "name": "precomputed_cadd_snvs",
+      "name": "additional_annotations",
       "label": "",
-      "class": "file",
+      "class": "array:file",
       "optional": true,
-      "help": ".tsv.gz file of all possible pre-computed SNVs in the GRCh38 human reference genome.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44X7KjJKBQfYJYj35k8jK45"
-        }
-      }
+      "default": null,
+      "help": "List of tabix .tsv.gz files with additional annotations to add to the final bcf. See README for format."
     },
     {
-      "name": "precomputed_cadd_indels",
-      "label": "",
-      "class": "file",
-      "optional": true,
-      "help": ".tsv.gz file of all gnomAD v3.0 InDels in GRCh38 human reference coordinates.",
-      "default": {
-        "$dnanexus_link": {
-          "project": "project-G6BJF50JJv8p4PjGB9yy7YQ2",
-          "id": "file-G44X2b0JXk8Kgyk6GYk8j92p"
-        }
-      }
+      "name": "gq",
+      "label": "Minimum genotype quality",
+      "class": "int",
+      "default": 10,
+      "help": "Minimum genotype quality to keep a genotype. Genotypes that fail this filter are set to './.' [10]."
+    },
+    {
+      "name": "wes",
+      "label": "Use filtering parameters for WES",
+      "class": "boolean",
+      "default": false,
+      "help": "Use filtering parameters for WES data [false]."
     }
   ],
   "outputSpec": [
@@ -152,7 +98,7 @@
       "patterns": [
         "*.bcf"
       ],
-      "help": "Output BCF(s) with CADD annotation"
+      "help": "Output BCF(s) with annotation"
     },
     {
       "name": "output_bcf_idxs",
@@ -185,16 +131,6 @@
       "help": "Associated indices for TSV file(s)"
     },
     {
-      "name": "output_per_samples",
-      "label": "Output per sample consequence annotations",
-      "class": "array:file",
-      "optional": false,
-      "patterns": [
-        "*.tsv"
-      ],
-      "help": "Per-sample variants with AF < 1e-3 for QC."
-    },
-    {
       "name": "coordinates_file",
       "label": "Coordinates of each bcf processed by this job",
       "class": "file",
@@ -218,16 +154,16 @@
       }
     },
     "interpreter": "python3",
-    "file": "src/mrcepid-filterbcf.py",
+    "file": "filterbcf/mrcepid-filterbcf.py",
     "distribution": "Ubuntu",
     "release": "20.04",
     "version": "0",
     "execDepends": [
       {
-        "name": "general_utilities",
+        "name": "filterbcf",
         "package_manager": "git",
-        "url":  "https://github.com/mrcepid-rap/general_utilities.git",
-        "tag": "v1.2.2",
+        "url": "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
+        "tag": "v2.0.0",
         "build_commands": "pip3 install ."
       }
     ]
@@ -236,7 +172,7 @@
     "aws:eu-west-2": {
       "systemRequirements": {
         "*": {
-          "instanceType": "mem2_ssd1_v2_x32"
+          "instanceType": "mem1_ssd1_v2_x72"
         }
       }
     }
