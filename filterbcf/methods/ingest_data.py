@@ -71,9 +71,13 @@ class IngestData:
         input_vcf_list = []
         input_vcf_path = download_dxfile_by_name(input_vcfs)
         with input_vcf_path.open('r') as input_vcf_reader:
-            for input_vcf in input_vcf_reader:
-                input_vcf_list.append(input_vcf.rstrip())
+            for line in input_vcf_reader:
+                fields = line.rstrip().split('\t')
+                for field in fields:
+                    if field.startswith('file-'):
+                        input_vcf_list.append(field)
 
+        print(input_vcf_list)
         self._logger.info(f'Input VCF list contains {len(input_vcf_list)} files...')
         return input_vcf_list
 
