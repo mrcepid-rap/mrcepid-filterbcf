@@ -7,19 +7,20 @@
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
 import csv
+import dxpy
+
 from pathlib import Path
 from time import sleep
 from typing import TypedDict, List
 
-import dxpy
 from general_utilities.association_resources import download_dxfile_by_name
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
 
 from filterbcf.methods.ingest_data import IngestData, AdditionalAnnotation
-from filterbcf.methods.vcf_annotate import VCFAnnotate
 from filterbcf.methods.vcf_filter import VCFFilter
+from filterbcf.methods.vcf_annotate import VCFAnnotate
 
 LOGGER = MRCLogger().get_logger()
 

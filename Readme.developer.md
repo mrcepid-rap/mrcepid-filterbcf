@@ -1,4 +1,4 @@
-# mrcepid-filterbcf Developer Readme
+# Developer Readme for mrcepid-filterbcf 
 
 ## Testing
 
@@ -46,25 +46,36 @@ bcftools view test_input2.vcf.gz | \
 tabix -p vcf test_input2_wgs.vcf.gz
 ```
 
-## Running this app with additional computational resources
+The files may also be missing the MA tag from the header and INFO field. If so, run the following command:
 
-This app has the following entry points:
+```
+# Normalize with bcftools and overwrite input
+for file in test_input1.vcf.gz test_input2.vcf.gz; do
+    tmp_out="tmp_${file}"
+    bcftools norm --threads 8 -w 100 -Oz -m - -f reference.fasta \
+        --old-rec-tag MA \
+        -o "$tmp_out" "$file"
+    mv "$tmp_out" "$file"
+done
+```
 
-* main
+Note that the dependency files (LOFTEE files, VEP files & reference files) should be downloaded
+separately and arranged in the way that is outlined below, to ensure successful test runs.
 
-When running this app, you can override the instance type to be used by
-providing the ``systemRequirements`` field to ```/applet-XXXX/run``` or
-```/app-XXXX/run```, as follows:
+One important thing to note is the folder structure. We are using a local image of Docker that expects
+certain dependency files to be in a certain order. The correct folder structure should look like this:
 
-    {
-      systemRequirements: {
-        "main": {"instanceType": "mem2_hdd2_x2"}
-      },
-      [...]
-    }
-
-See <a
-href="https://documentation.dnanexus.com/developer/api/running-analyses/io-and-run-specifications#run-specification">Run
-Specification</a> in the API documentation for more information about the
-available instance types.
-
+```
+- test/
+  - test_data/
+    - expected_outputs/
+      - *all expected outputs*
+    - test_input1.vcf.gz
+    - test_input2.vcf.gz
+  - reference.fasta
+  - reference.fasta.fai
+  - loftee_files/
+    - loftee_hg38/
+  - vep_caches/
+    - homo_sapiens/
+```

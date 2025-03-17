@@ -19,9 +19,10 @@
       "name": "coordinates_name",
       "label": "Name of the output coordinates file",
       "class": "string",
-      "optional": false,
+      "optional": true,
+      "default": "coordinates.tsv",
       "patterns": [
-        "*"
+        "*.tsv"
       ],
       "help": "Name of the output coordinates file."
     },
@@ -56,7 +57,7 @@
       "label": "VEP cache from ENSEMBL",
       "class": "file",
       "optional": false,
-      "help": "Pointer to the VEP cache stored on DNA nexus. Current default is v107"
+      "help": "Pointer to the VEP cache stored on DNA nexus."
     },
     {
       "name": "loftee_libraries",
