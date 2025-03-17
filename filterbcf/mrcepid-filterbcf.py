@@ -56,23 +56,23 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
 
     # Download the VCF file chunk to the instance
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
-
+    print('here1')
     # 1. Do normalisation and filtering
     vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes)
-
+    print('here2')
     # We need to pause here in each thread to make sure that VEP files have downloaded in separate threads...
     # We know that when the original .tar.gz files are gone it is safe to proceed; deleting these files is the final
     # step of the download process.
     downloads = [Path('reference.fasta.gz'),
                  Path('loftee_hg38.tar.gz'),
                  Path('homo_sapiens_vep_108_GRCh38.tar.gz')]
-
+    print('here3')
     while True in [file.exists() for file in downloads]:
         sleep(5)
-
+    print('here4')
     # 2. Do annotation
     vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
-
+    print('here5')
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
             'end': vcf_annotater.chunk_end,
