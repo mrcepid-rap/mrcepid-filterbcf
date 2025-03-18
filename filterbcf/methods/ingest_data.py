@@ -72,8 +72,10 @@ class IngestData:
 
         with input_vcf_path.open('r') as input_vcf_reader:
             for line in input_vcf_reader:
+                print(line)
                 fields = line.rstrip().split('\t')
                 for field in fields:
+                    print(field)
                     if field.startswith('file-'):
                         input_vcf_list.append(field)
 
