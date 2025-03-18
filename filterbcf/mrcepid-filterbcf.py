@@ -56,7 +56,9 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
     """
 
     # Download the VCF file chunk to the instance
+    print(vcf)
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
+    print(vcf_path)
 
     # 1. Do normalisation and filtering
     vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes)
