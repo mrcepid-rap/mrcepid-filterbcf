@@ -82,6 +82,34 @@
       "help": "Minimum genotype quality to keep a genotype. Genotypes that fail this filter are set to './.' [10]."
     },
     {
+      "name": "ad_binom",
+      "label": "Minimum binomial p-value for binom(AD)",
+      "class": "float",
+      "default": 0.001,
+      "help": "Filters heterozygous genotypes with ref / alt binomial p. value ≤ input value. Genotypes that fail this filter are set to './.' [0.001]."
+    },
+    {
+      "name": "snp_depth",
+      "label": "Minimum depth for SNPs",
+      "class": "int",
+      "default": 7,
+      "help": "Minimum SNP depth (DP) to keep a SNP genotype. Genotypes that fail this filter are set to './.' [7]."
+    },
+    {
+      "name": "indel_depth",
+      "label": "Minimum depth for InDels",
+      "class": "int",
+      "default": 10,
+      "help": "Minimum InDel depth (DP) to keep an InDel genotype. Genotypes that fail this filter are set to './.' [10]."
+    },
+    {
+      "name": "missingness",
+      "label": "Maximum missingness to keep a variant",
+      "class": "float",
+      "default": 0.5,
+      "help": "Variants with missingness ≥ to input value are marked with a FAIL flag. Value should be given in decimal, not percentage, notation (i.e., 0.5 = 50%). Note that variants are retained from resulting outputs regardless of value [0.5]."
+    },
+    {
       "name": "wes",
       "label": "Use filtering parameters for WES",
       "class": "boolean",
@@ -160,11 +188,15 @@
     "version": "0",
     "execDepends": [
       {
+        "name": "uv",
+        "package_manager": "pip"
+      },
+      {
         "name": "filterbcf",
         "package_manager": "git",
         "url": "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
-        "tag": "v2.0.0",
-        "build_commands": "pip3 install ."
+        "tag": "feature/additional_filters",
+        "build_commands": "uv pip install --system ."
       }
     ]
   },
