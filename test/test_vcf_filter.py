@@ -17,11 +17,11 @@ KEEP_TEMP = False
 EXPECTED_VCF_VALUES = [{'final': 845, 'original': 835,
                         'vcf': test_data_dir / 'test_input1.vcf.gz',
                         'index': test_data_dir / 'test_input1.vcf.gz.tbi',
-                        'fail': 2},
+                        'fail': 88},
                        {'final': 417, 'original': 410,
                         'vcf': test_data_dir / 'test_input2.vcf.gz',
                         'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                        'fail': 0},
+                        'fail': 67},
                        ]
 
 for vcf_data in EXPECTED_VCF_VALUES:
@@ -81,34 +81,43 @@ def make_vcf_link(tmp_dir: Path, vcf: Path, idx: Path) -> Tuple[Path, Path]:
     return tmp_vcf, tmp_idx
 
 
-@pytest.mark.parametrize(argnames=['vcf_info', 'wes', 'gq', 'gt_none'],
+@pytest.mark.parametrize(argnames=['vcf_info', 'wes', 'gq', 'ad_binom', 'snp_depth', 'indel_depth' ,'gt_none'],
                          argvalues=[
-                             ({'final': 845, 'original': 907,
+                             ({'final': 845, 'original': 907, # Standard inputs, VCF1
                                'vcf': test_data_dir / 'test_input1.vcf.gz',
                                'index': test_data_dir / 'test_input1.vcf.gz.tbi',
-                               'fail': 2}, True, 20, 240686),
-                             ({'final': 417, 'original': 410,
-                               'vcf': test_data_dir / 'test_input2_wgs.vcf.gz',
-                               'index': test_data_dir / 'test_input2_wgs.vcf.gz.tbi',
-                               'fail': 0}, False, 20, 213456),
-                             ({'final': 845, 'original': 835,
+                               'fail': 2}, True, 20, 0.001, 7, 10, 240686),
+                             ({'final': 417, 'original': 558, # Standard inputs, VCF2
+                               'vcf': test_data_dir / 'test_input2.vcf.gz',
+                               'index': test_data_dir / 'test_input2.vcf.gz.tbi',
+                               'fail': 0}, True, 20, 0.001, 7, 10, 289806),
+                             ({'final': 845, 'original': 835, # Standard inputs VCF1 WGS
                                'vcf': test_data_dir / 'test_input1_wgs.vcf.gz',
                                'index': test_data_dir / 'test_input1_wgs.vcf.gz.tbi',
-                               'fail': 2}, False, 20, 212163),
-                             ({'final': 417, 'original': 558,
-                               'vcf': test_data_dir / 'test_input2.vcf.gz',
-                               'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                               'fail': 0}, True, 90, 1131016),
-                             ({'final': 845, 'original': 907,
+                               'fail': 2}, False, 20, 0.001, 7, 10, 212163),
+                             ({'final': 417, 'original': 410, # Standard inputs, VCF2 WGS
+                               'vcf': test_data_dir / 'test_input2_wgs.vcf.gz',
+                               'index': test_data_dir / 'test_input2_wgs.vcf.gz.tbi',
+                               'fail': 0}, False, 20, 0.001, 7, 10, 213456),
+                             ({'final': 845, 'original': 907, # GQ 10
                                'vcf': test_data_dir / 'test_input1.vcf.gz',
                                'index': test_data_dir / 'test_input1.vcf.gz.tbi',
-                               'fail': 2}, True, 10, 222783),
-                             ({'final': 417, 'original': 558,
+                               'fail': 2}, True, 10, 0.001, 7, 10, 222783),
+                             ({'final': 417, 'original': 558, # GQ 90
                                'vcf': test_data_dir / 'test_input2.vcf.gz',
                                'index': test_data_dir / 'test_input2.vcf.gz.tbi',
-                               'fail': 0}, True, 20, 289806),
+                               'fail': 0}, True, 90, 0.001, 7, 10, 1131016),
+                             ({'final': 845, 'original': 907,  # ad_binom 0.01
+                               'vcf': test_data_dir / 'test_input1.vcf.gz',
+                               'index': test_data_dir / 'test_input1.vcf.gz.tbi',
+                               'fail': 2}, True, 20, 0.01, 7, 10, 241171),
+                             ({'final': 845, 'original': 907, # snp_depth 10, indel_depth 15
+                               'vcf': test_data_dir / 'test_input1.vcf.gz',
+                               'index': test_data_dir / 'test_input1.vcf.gz.tbi',
+                               'fail': 2}, True, 20, 0.001, 10, 15, 250560)
                          ])
-def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_none: int) -> None:
+def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, ad_binom: float, snp_depth: int,
+                         indel_depth: int, gt_none: int) -> None:
     """
     Test for the genotype filter of the VCF files. We are testing to ensure that the genotype filter is working.
 
@@ -116,7 +125,10 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :param wes: boolean flag for WES
     :param gq: genotype quality threshold
-    :return: output
+    :param ad_binom: Binomial test p-value for filtering heterozygous genotypes.
+    :param snp_depth: Depth filter for snps.
+    :param indel_depth: Depth filter for indels.
+    :return: None
     """
     test_mount = DockerMount(temporary_path, Path('/test/'))
     cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
@@ -124,9 +136,10 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq, wes, testing=True)
+    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq, ad_binom, snp_depth, indel_depth,
+                             missingness=0.5, wes=wes, testing=True)
 
-    outfile = class_loaded._genotype_filter(Path(tmp_vcf.name), gq, wes)
+    outfile = class_loaded._genotype_filter(Path(tmp_vcf.name), gq, ad_binom, snp_depth, indel_depth, wes)
     outfile_path = tmp_vcf.parent / outfile
 
     assert outfile_path.exists()
@@ -155,7 +168,7 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, gt_
             genotype_counts[gt_str] += 1
 
     # Debug assertion failures
-    assert genotype_counts.get('./.', 0) == gt_none, f"Expected 212132, but got {genotype_counts.get('./.', 0)}"
+    assert genotype_counts.get('./.', 0) == gt_none, f"Expected {gt_none}, but got {genotype_counts.get('./.', 0)}"
 
 
 @pytest.mark.parametrize(
@@ -184,7 +197,7 @@ def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_f
     """
     Create and set missingness values in the VCF file
 
-    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param temporary_path: temporary data directory made by the tmp_data_dir() function
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
@@ -194,7 +207,8 @@ def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_f
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, wes=True, testing=True)
+    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+                             missingness=0.5, wes=True, testing=True)
 
     outfile = class_loaded._set_missingness_values(Path(tmp_vcf.name))
 
@@ -272,7 +286,7 @@ def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
     """
     Ensure variant IDs are properly formatted
 
-    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param temporary_path: temporary data directory made by the tmp_data_dir() function
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
@@ -282,7 +296,8 @@ def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, wes=True, testing=True)
+    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+                             missingness=0.5, wes=True, testing=True)
 
     outfile = class_loaded._set_id(Path(tmp_vcf.name))
 
@@ -298,14 +313,20 @@ def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
             assert f"{record.chrom}_{record.pos}_{record.ref}_{record.alts[0]}" in record.id
 
 
-@pytest.mark.parametrize(argnames='vcf_info',
-                         argvalues=EXPECTED_VCF_VALUES)
-def test_set_filter_flags(temporary_path: Path, vcf_info: Dict) -> None:
+@pytest.mark.parametrize(argnames='vcf_info, missingness, expected_fail',
+                         argvalues=[(EXPECTED_VCF_VALUES[0], 0.5, 88),
+                                    (EXPECTED_VCF_VALUES[1], 0.5, 67),
+                                    (EXPECTED_VCF_VALUES[0], 0.0, 297),  # Some sites have 0% missingness
+                                    (EXPECTED_VCF_VALUES[0], 0.1, 118),
+                                    (EXPECTED_VCF_VALUES[0], 1.0, 47)])
+def test_set_filter_flags(temporary_path: Path, vcf_info: Dict, missingness: float, expected_fail: int) -> None:
     """
     Ensure the filter flags are working correctly
 
-    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param temporary_path: temporary data directory made by the tmp_data_dir() function
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
+    :param missingness: missingness threshold
+    :param expected_fail: expected number of failed records
     :return: output
     """
     test_mount = DockerMount(temporary_path, Path('/test/'))
@@ -314,24 +335,32 @@ def test_set_filter_flags(temporary_path: Path, vcf_info: Dict) -> None:
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, wes=True, testing=True)
+    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+                             missingness=missingness, wes=True, testing=True)
 
-    outfile = class_loaded._set_filter_flags(Path(tmp_vcf.name))
+    labeled_file = tmp_vcf.with_suffix('.id_fixed.bcf')
+    print(labeled_file.absolute())
+    assert labeled_file.exists()
+
+    outfile = class_loaded._set_filter_flags(Path(labeled_file.name), missingness)
 
     outfile_path = tmp_vcf.parent / outfile
     assert outfile_path.exists()
 
-    count_pass = 0
+    count_fail = 0
+    count_all = 0
 
     with VariantFile(outfile_path) as vcf_in:
         # Print the variant records
         # Each variant record can be converted to a string, which resembles the original VCF line.
         for record in vcf_in:
             # If 'PASS' is in the filter set, increment the counter
+            count_all += 1
             if "FAIL" in record.filter.keys():
-                count_pass += 1
-        print(f"Number of FAIL records: {count_pass}")
-        assert count_pass == vcf_info['fail']
+                count_fail += 1
+        print(f"Number of FAIL records: {count_fail}")
+        print(f"Number of all records: {count_all}")
+        assert count_fail == expected_fail
 
 
 @pytest.mark.parametrize(argnames='vcf_info',
@@ -340,7 +369,7 @@ def test_write_index(temporary_path: Path, vcf_info: Dict) -> None:
     """
     Ensure the index file gets created
 
-    :param tmp_data_dir: temporary data directory made by the tmp_data_dir() function
+    :param temporary_path: temporary data directory made by the tmp_data_dir() function
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
@@ -350,7 +379,8 @@ def test_write_index(temporary_path: Path, vcf_info: Dict) -> None:
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, wes=True, testing=True)
+    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+                             missingness=0.5, wes=True, testing=True)
 
     outfile = class_loaded._write_index(Path(tmp_vcf.name))
 

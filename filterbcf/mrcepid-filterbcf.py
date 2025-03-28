@@ -39,7 +39,8 @@ class ProcessedReturn(TypedDict):
 # This is a method that will execute all steps necessary to process one VCF file
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
-                cmd_executor: CommandExecutor, gq: int, wes: bool) -> ProcessedReturn:
+                cmd_executor: CommandExecutor, gq: int, ad_binom: float, snp_depth: int, indel_depth: int,
+                 missingness: float, wes: bool) -> ProcessedReturn:
     """
     Process a VCF file by performing normalization, filtering, and annotation.
 
@@ -50,6 +51,10 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
     :param additional_annotations: A list of additional annotations to be applied to the VCF file.
     :param cmd_executor: An instance of CommandExecutor to run commands.
     :param gq: The genotype quality threshold for filtering.
+    :param ad_binom: Binomial test p-value for filtering heterozygous genotypes.
+    :param snp_depth: Depth filter for snps.
+    :param indel_depth: Depth filter for indels.
+    :param missingness: Missingness filter to use.
     :param wes: A boolean flag indicating if the VCF is from whole exome sequencing data.
     :return: A dictionary containing processed VCF information including chromosome, start, end, VCF prefix,
              output BCF file, output BCF index, output VEP file, and output VEP index.
@@ -59,7 +64,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
     vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
 
     # 1. Do normalisation and filtering
-    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, wes)
+    vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, ad_binom, snp_depth, indel_depth, missingness, wes)
 
     # We need to pause here in each thread to make sure that VEP files have downloaded in separate threads...
     # We know that when the original .tar.gz files are gone it is safe to proceed; deleting these files is the final
@@ -86,7 +91,8 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
 
 @dxpy.entry_point('main')
 def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_reference_index: dict,
-         vep_cache: dict, loftee_libraries: dict, additional_annotations: List[dict], gq, wes):
+         vep_cache: dict, loftee_libraries: dict, additional_annotations: List[dict], gq: int, ad_binom: float,
+         snp_depth: int, indel_depth: int, missingness: float, wes: bool):
     """
     Main entry point for processing multiple VCF files on DNA Nexus.
 
@@ -101,6 +107,10 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     :param loftee_libraries: A dictionary containing the LOFTEE libraries.
     :param additional_annotations: A list of additional annotations to be applied to the VCF files.
     :param gq: The genotype quality threshold for filtering.
+    :param ad_binom: Binomial test p-value for filtering heterozygous genotypes.
+    :param snp_depth: Depth filter for snps.
+    :param indel_depth: Depth filter for indels.
+    :param missingness: Missingness filter to use.
     :param wes: A boolean flag indicating if the VCF is from whole exome sequencing data.
     :return: A dictionary containing links to the output BCF files, their indexes, VEP files, and the coordinates file.
     """
@@ -123,6 +133,10 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                                   additional_annotations=ingested_data.annotations,
                                   cmd_executor=ingested_data.cmd_executor,
                                   gq=gq,
+                                  ad_binom=ad_binom,
+                                  snp_depth=snp_depth,
+                                  indel_depth=indel_depth,
+                                  missingness=missingness,
                                   wes=wes)
 
     # And add the resulting futures to relevant output arrays / file
