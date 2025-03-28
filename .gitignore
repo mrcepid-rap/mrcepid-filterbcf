@@ -1,19 +1,21 @@
 # OS generated files
 .idea/
-.DS_Store?
+**/.DS_Store
 
 # Test files
 filterbcf/__pycache__/
 filterbcf/methods/__pycache__/
-dx_run.log?
+**/dx_run.log
 test/__pycache__/
 test/test_data/reference.fasta
 test/loftee_files
 test/vep_caches
 test/reference.fasta.fai
 test/reference.fasta
+test/scripts/genotypes.txt
 
 # UV files
 .python-version
 uv.lock
 .venv/
+
