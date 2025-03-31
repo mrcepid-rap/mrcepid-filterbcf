@@ -9,7 +9,7 @@ use the outputs in any downstream analyses.
 
 If you wish to re-generate the test data, please use the following commands:
 
-#### Test data
+### Test data
 
 ```
 bcftools view -Oz https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/data_collections/1000G_2504_high_coverage/working/20201028_3202_raw_GT_with_annot/20201028_CCDG_14151_B01_GRM_WGS_2020-08-05_chr7.recalibrated_variants.vcf.gz "chr7:100679507-100694250" > test_input1.vcf.gz
@@ -18,7 +18,7 @@ bcftools index -t test_input1.vcf.gz
 bcftools index -t test_input2.vcf.gz
 ```
 
-#### External files
+### External files
 
 You also need to follow these commands to download the `reference.fasta` file:
 
@@ -78,4 +78,23 @@ certain dependency files to be in a certain order. The correct folder structure 
     - loftee_hg38/
   - vep_caches/
     - homo_sapiens/
+```
+
+### Generating Test Values
+
+We have generated a script (at `test/scripts/generate_test_values.py`) that will generate expected values following 
+filtering for the test VCFs in `test/test_data`. This is mostly for sanity checking purposes, but provides a simple
+way to generate filtered genotypes & missingness values for use in the `test_genotype_filter` and `test_set_id` functions
+of `test/test_vcf_filter.py`. An example command line is:
+
+```shell
+python3 test/scripts/generate_test_values.py test/test_data/test_input2.vcf.gz 0.001 7 10 0.5
+```
+
+Which should give an output like:
+
+```text
+Number of ./. genotypes pre-filtering: 16050
+Number of ./. genotypes post-filtering: 289806
+Number of missing sites with missingness <= 0.5 and AC != 0: 67
 ```
