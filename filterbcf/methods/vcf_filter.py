@@ -15,10 +15,16 @@ class VCFFilter:
     :param vcf_path: The original vcf file to be filtered, that has ALREADY been normalised.
     :param cmd_executor: An instance of the CommandExecutor class to run commands on the docker container.
     :param gq: Genotype quality filter to use.
+    :param ad_binom: Binomial test p-value for filtering heterozygous genotypes.
+    :param snp_depth: Depth filter for snps.
+    :param indel_depth: Depth filter for indels.
+    :param missingness: Missingness filter to use.
     :param wes: A boolean flag to indicate if the vcf is from whole exome sequencing data.
+    :param testing: A boolean flag to indicate if the class is being run as part of a test.
     """
 
-    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, gq: int, wes: bool, testing: bool = False):
+    def __init__(self, vcf_path: Path, cmd_executor: CommandExecutor, gq: int, ad_binom: float, snp_depth: int, indel_depth: int,
+                 missingness: float, wes: bool, testing: bool = False):
 
         self._cmd_executor = cmd_executor
         self._vcf_prefix = vcf_path.stem
@@ -26,10 +32,10 @@ class VCFFilter:
         self.testing = testing
         self._files_to_close = []
 
-        filter_out = self._genotype_filter(vcf_path, gq, wes)
+        filter_out = self._genotype_filter(vcf_path, gq, ad_binom, snp_depth, indel_depth, wes)
         flag_out = self._set_missingness_values(filter_out)
         id_out = self._set_id(flag_out)
-        self.filtered_vcf = self._set_filter_flags(id_out)
+        self.filtered_vcf = self._set_filter_flags(id_out, missingness)
         self.filtered_idx = self._write_index(self.filtered_vcf)
         # Final file should have a name like:
         # self._vcf_prefix.missingness_filtered.bcf
@@ -46,7 +52,7 @@ class VCFFilter:
             for file in self._files_to_close:
                 file.unlink()
 
-    def _genotype_filter(self, input_vcf: Path, gq: int, wes: bool) -> Path:
+    def _genotype_filter(self, input_vcf: Path, gq: int, ad_binom: float, snp_depth: int, indel_depth: int, wes: bool) -> Path:
         """Do genotype level filtering using bcftools filter.
 
         BCFTools flags used in this function:
@@ -68,23 +74,27 @@ class VCFFilter:
         - All variants regardless of genotype are filtered on DP ≥ 10 and GQ ≥ 20
 
         :param input_vcf: Path to the input vcf file. This file will be deleted on completion of this method.
+        :param gq: Genotype quality filter to use.
+        :param ad_binom: Binomial test p-value for filtering heterozygous genotypes.
+        :param snp_depth: Depth filter for snps.
+        :param indel_depth: Depth filter for indels.
         :param wes: A boolean flag to indicate if the vcf is from whole exome sequencing data.
         :return: Path to the filtered bcf file
         """
 
         output_vcf = Path(f'{self._vcf_prefix}.filtered.bcf')
         if wes:
-            filtering_string = f'"(TYPE=\'snp\' & FMT/DP >= 7 & (' \
+            filtering_string = f'"(TYPE=\'snp\' & FMT/DP >= {snp_depth} & (' \
                                f'(FMT/GT=\'RR\' & FMT/GQ >= {gq}) | ' \
-                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/AD) > 0.001) | ' \
+                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/AD) > {ad_binom}) | ' \
                                f'(FMT/GT=\'AA\'))) | ' \
-                               f'(TYPE=\'indel\' & FMT/DP >= 10 & FMT/GQ >= {gq})"'
+                               f'(TYPE=\'indel\' & FMT/DP >= {indel_depth} & FMT/GQ >= {gq})"'
         else:
-            filtering_string = f'"(TYPE=\'snp\' & sSUM(FMT/LAD) >= 7 & (' \
+            filtering_string = f'"(TYPE=\'snp\' & sSUM(FMT/LAD) >= {snp_depth} & (' \
                                f'(FMT/GT=\'RR\' & FMT/GQ >= {gq}) | ' \
-                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/LAD) > 0.001) | ' \
+                               f'(FMT/GT=\'RA\' & FMT/GQ >= {gq} & binom(FMT/LAD) > {ad_binom}) | ' \
                                f'(FMT/GT=\'AA\' & FMT/GQ >= {gq}))) | ' \
-                               f'(TYPE=\'indel\' & sSUM(FMT/LAD) >= 10 & FMT/GQ >= {gq})"'
+                               f'(TYPE=\'indel\' & sSUM(FMT/LAD) >= {indel_depth} & FMT/GQ >= {gq})"'
 
         cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 4 -S . -i {filtering_string} /test/{input_vcf}'
 
@@ -141,7 +151,7 @@ class VCFFilter:
 
         return output_vcf
 
-    def _set_filter_flags(self, input_vcf: Path) -> Path:
+    def _set_filter_flags(self, input_vcf: Path, missingness: float) -> Path:
         """Set pass/fail filters within the filtered VCF
 
         BCFTools flags used in this function:
@@ -152,10 +162,11 @@ class VCFFilter:
             AC        : Only include biallelic sites (i.e. no monomorphic)
 
         :param input_vcf: Path to the input vcf file. This file will be deleted on completion of this method.
+        :param missingness: Missingness filter to use.
         :return: Path to the missingness filtered bcf file
         """
         output_vcf = Path(f'{self._vcf_prefix}.missingness_filtered.bcf')
-        cmd = f'bcftools filter -i \'F_MISSING<=0.50 & AC!=0\' -s \'FAIL\' -Ob --threads 4 ' \
+        cmd = f'bcftools filter -i \'F_MISSING<={missingness} & AC!=0\' -s \'FAIL\' -Ob --threads 4 ' \
               f'-o /test/{output_vcf} ' \
               f'/test/{input_vcf}'
         self._cmd_executor.run_cmd_on_docker(cmd)

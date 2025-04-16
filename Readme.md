@@ -47,6 +47,9 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v2.1.0
+  * Added new inputs to filter on gq, ad_binom, snp_depth, and indel_depth.
+
 * v2.0.0
   * Applet has gone through a major refactor to support WGS analysis. Do not expect backwards compatability with previous versions.
   * Splitting of multiallelics has been refactored to the [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter).
@@ -375,7 +378,11 @@ The final .tsv & filtered .bcf represents the output of this applet. See below i
 | coordinates_name       | `coordinates.tsv`                                                | Name of the output storing coordinate information for all output files.                                                                                         |
 | human_reference        | `project-Fx2x0fQJ06KfqV7Y3fFZq1jp:file-Fx2x270Jx0j17zkb3kbBf6q2` | GRCh38 human reference genome.                                                                                                                                  |
 | human_reference_index  | `project-Fx2x0fQJ06KfqV7Y3fFZq1jp:file-Fx2x21QJ06f47gV73kZPjkQQ` | GRCh38 human reference genome .fai index.                                                                                                                       |
-| gq                     | 20                                                               | What genotype quality threshold to use when filtering genotypes                                                                                                 |
+| gq                     | 20                                                               | What genotype quality threshold to use when filtering genotypes.                                                                                                |
+| ad_binom               | 0.001                                                            | p. value threshold (≤) when running binomial tests on heterozygous SNPs.                                                                                        |
+| snp_depth              | 7                                                                | SNP genotypes with depth < value are filtered.                                                                                                                  |
+| indel_depth            | 10                                                               | InDel genotypes with depth < value are filtered.                                                                                                                |
+| missingness            | 0.5                                                              | Variants with overall genotype missingness ≥ value have FILTER column in output .bcf set to FAIL. Variants are NOT filtered based on this input.                |
 | wes                    | false                                                            | Is the data derived from Whole Exome Sequencing?                                                                                                                |
 | additional_annotations | None                                                             | A list of additional annotations to add to the vep.tsv.gz output. See below for formatting.                                                                     |
 
