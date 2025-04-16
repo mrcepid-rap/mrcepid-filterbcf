@@ -47,6 +47,9 @@ dx describe file-1234567890ABCDEFGHIJKLMN
 
 ### Changelog
 
+* v2.1.0
+  * Added new inputs to filter on gq, ad_binom, snp_depth, and indel_depth.
+
 * v2.0.0
   * Applet has gone through a major refactor to support WGS analysis. Do not expect backwards compatability with previous versions.
   * Splitting of multiallelics has been refactored to the [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter).
