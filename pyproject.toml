@@ -7,7 +7,7 @@ authors = [
     {name = "Eugene Gardner"},
     {name = "Alish Palmos"}
 ]
-requires-python = ">=3.8.10"
+requires-python = ">=3.8.10,<3.9"
 dependencies = [
     "dxpy==0.346.0",
     "general-utilities",
