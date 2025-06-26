@@ -89,7 +89,7 @@ class IngestData:
         :return: None
         """
         human_reference_path = InputFileHandler(human_reference, download_now=True).get_file_handle()
-        human_reference_index_path = InputFileHandler(human_reference_index, download_now=True).get_file_type()
+        human_reference_index_path = InputFileHandler(human_reference_index, download_now=True).get_file_handle()
         human_reference_path.rename('reference.fasta.gz')
         human_reference_index_path.rename('reference.fasta.fai')
 
