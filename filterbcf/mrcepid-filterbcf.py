@@ -13,7 +13,7 @@ from pathlib import Path
 from time import sleep
 from typing import TypedDict, List
 
-from general_utilities.association_resources import download_dxfile_by_name
+from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
@@ -61,7 +61,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
     """
 
     # Download the VCF file chunk to the instance
-    vcf_path = download_dxfile_by_name(vcf, project_id=dxpy.PROJECT_CONTEXT_ID, print_status=False)
+    vcf_path = InputFileHandler(vcf, download_now=True).get_file_handle()
 
     # 1. Do normalisation and filtering
     vcf_filter = VCFFilter(vcf_path, cmd_executor, gq, ad_binom, snp_depth, indel_depth, missingness, wes)

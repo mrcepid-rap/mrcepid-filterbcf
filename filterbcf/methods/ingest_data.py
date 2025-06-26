@@ -4,7 +4,8 @@ from pathlib import Path
 from typing import List, TypedDict, Tuple, Optional
 
 import dxpy
-from general_utilities.association_resources import find_index, download_dxfile_by_name
+from general_utilities.association_resources import find_index
+from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import build_default_command_executor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
@@ -69,7 +70,7 @@ class IngestData:
         """
 
         input_vcf_list = []
-        input_vcf_path = download_dxfile_by_name(input_vcfs)
+        input_vcf_path = InputFileHandler(input_vcfs).get_file_handle()
         with input_vcf_path.open('r') as input_vcf_reader:
             for input_vcf in input_vcf_reader:
                 input_vcf_list.append(input_vcf.rstrip())
@@ -87,8 +88,8 @@ class IngestData:
         :param human_reference_index: A dxlink to the human reference index file in .fasta.fai format
         :return: None
         """
-        human_reference_path = download_dxfile_by_name(human_reference)
-        human_reference_index_path = download_dxfile_by_name(human_reference_index)
+        human_reference_path = InputFileHandler(human_reference, download_now=True).get_file_handle()
+        human_reference_index_path = InputFileHandler(human_reference_index, download_now=True).get_file_type()
         human_reference_path.rename('reference.fasta.gz')
         human_reference_index_path.rename('reference.fasta.fai')
 
@@ -105,7 +106,7 @@ class IngestData:
 
         loftee_dir = Path('loftee_files/')
         loftee_dir.mkdir(exist_ok=True)
-        loftee_path = download_dxfile_by_name(loftee_libraries)
+        loftee_path = InputFileHandler(loftee_libraries, download_now=True).get_file_handle()
 
         cmd = f'tar -zxf {loftee_path} -C {loftee_dir}/'
         self.cmd_executor.run_cmd(cmd)
@@ -121,7 +122,7 @@ class IngestData:
         """
         vep_dir = Path('vep_caches/')
         vep_dir.mkdir(exist_ok=True)  # This is for legacy reasons to make sure all tests work...
-        vep_path = download_dxfile_by_name(vep_cache)
+        vep_path = InputFileHandler(vep_cache, download_now=True).get_file_handle()
 
         cmd = f'tar -zxf {vep_path} -C {vep_dir}/'
         self.cmd_executor.run_cmd(cmd)
@@ -199,8 +200,8 @@ class IngestData:
         """
 
         index_dxfile = find_index(annotation_dxfile, 'tbi')
-        annotation_path = download_dxfile_by_name(annotation_dxfile)
-        index_path = download_dxfile_by_name(index_dxfile)
+        annotation_path = InputFileHandler(annotation_dxfile, download_now=True).get_file_handle()
+        index_path = InputFileHandler(index_dxfile, download_now=True).get_file_handle()
         annotation_name = ''
 
         with gzip.open(annotation_path, 'rt') as annotation_reader:
