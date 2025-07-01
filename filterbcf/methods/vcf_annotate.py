@@ -250,8 +250,8 @@ class VCFAnnotate:
         # Memory requires for annot-tsv appear to be very high for large files. I am slicing the annotation file down
         # to the same region as the vcf to see if I can reduce memory requirements.
         sliced_tsv = replace_multi_suffix(annotation["file"], f'.{self.vcfprefix}.sliced.tsv')
-        cmd = f'tabix --threads 4 -h /test/{annotation["file"]} ' \
-              f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv}'  # -1 due to 0-based idx
+        cmd = f'tabix --threads 4 -h /test/{annotation["file"].name} ' \
+              f'"{self.chunk_chrom}:{self.chunk_start - 1}-{self.chunk_end}" > {sliced_tsv.name}'  # -1 due to 0-based idx
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         sliced_bgzip, _ = bgzip_and_tabix(sliced_tsv, comment_char='#', end_row=2)
@@ -271,9 +271,9 @@ class VCFAnnotate:
               f'-c CHROM,POS,POS ' \
               f'-f {annotation["annotation_name"]} ' \
               f'-m {match_string} ' \
-              f'-t /test/{input_tsv} ' \
-              f'-s /test/{sliced_bgzip} ' \
-              f'-o /test/{output_tsv}'
+              f'-t /test/{input_tsv.name} ' \
+              f'-s /test/{sliced_bgzip.name} ' \
+              f'-o /test/{output_tsv.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
         input_tsv.unlink()
 
