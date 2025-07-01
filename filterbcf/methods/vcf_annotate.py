@@ -170,8 +170,8 @@ class VCFAnnotate:
         # -G : strips genotypes
         output_sites = Path(f'{self.vcfprefix}.sites.vcf.gz')
         cmd = f'bcftools view --threads 4 -G -Oz ' \
-              f'-o /test/{output_sites} ' \
-              f'/test/{input_vcf}'
+              f'-o /test/{output_sites.name} ' \
+              f'/test/{input_vcf.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         return output_sites
@@ -212,8 +212,8 @@ class VCFAnnotate:
         cmd = f'perl -Iensembl-vep/cache/Plugins/loftee/ -Iensembl-vep/cache/Plugins/loftee/maxEntScan/ ' \
               f'ensembl-vep/vep --offline --cache --assembly GRCh38 --dir_cache /test/vep_caches/ ' \
               f'--everything --allele_num --fork 4 ' \
-              f'-i /test/{input_vcf} --format vcf --fasta /test/reference.fasta ' \
-              f'-o /test/{output_vcf} --compress_output bgzip --vcf ' \
+              f'-i /test/{input_vcf.name} --format vcf --fasta /test/reference.fasta ' \
+              f'-o /test/{output_vcf.name} --compress_output bgzip --vcf ' \
               f'--dir_plugins ensembl-vep/cache/Plugins/ ' \
               f'--plugin LoF,loftee_path:ensembl-vep/cache/Plugins/loftee,human_ancestor_fa:/test/loftee_files/loftee_hg38/human_ancestor.fa.gz,conservation_file:/test/loftee_files/loftee_hg38/loftee.sql,gerp_bigwig:/test/loftee_files/loftee_hg38/gerp_conservation_scores.homo_sapiens.GRCh38.bw'
         self._cmd_executor.run_cmd_on_docker(cmd)
@@ -301,8 +301,8 @@ class VCFAnnotate:
 
         vep_table = Path(f'{self.vcfprefix}.vep_table.tsv')
         cmd = f'bcftools +split-vep -df \'{to_extract_string}\\n\' -H ' \
-              f'-o /test/{vep_table} ' + \
-              f'/test/{input_vcf}'
+              f'-o /test/{vep_table.name} ' + \
+              f'/test/{input_vcf.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
         input_vcf.unlink()
 
