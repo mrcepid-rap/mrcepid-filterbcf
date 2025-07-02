@@ -1,6 +1,6 @@
 [project]
 name = "mrcepid-filterbcf"
-version = "2.0.0"
+version = "2.0.2"
 description = "Filter a target BCF according to parameters set by MRC Epidemiology"
 readme = "Readme.md"
 authors = [

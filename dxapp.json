@@ -3,7 +3,7 @@
   "title": "FilterBCF",
   "summary": "Filter a target BCF according to parameters set by MRC Epidemiology",
   "dxapi": "1.0.0",
-  "version": "2.1.0",
+  "version": "2.0.2",
   "inputSpec": [
     {
       "name": "input_vcfs",
@@ -195,7 +195,7 @@
         "name": "filterbcf",
         "package_manager": "git",
         "url": "https://github.com/mrcepid-rap/mrcepid-filterbcf.git",
-        "tag": "feature/integrate_with_generalutils_v2",
+        "tag": "main",
         "build_commands": "uv pip install --system ."
       }
     ]
