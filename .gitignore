@@ -19,3 +19,6 @@ test/scripts/genotypes.txt
 uv.lock
 .venv/
 
+# directories
+build
+mrcepid_filterbcf.egg-info

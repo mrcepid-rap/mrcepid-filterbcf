@@ -5,17 +5,17 @@ description = "Filter a target BCF according to parameters set by MRC Epidemiolo
 readme = "Readme.md"
 authors = [
     {name = "Eugene Gardner"},
-    {name = "Alish Palmos"}]
-requires-python = "~=3.8.10"
+    {name = "Alish Palmos"}
+]
+requires-python = ">=3.8.10,<3.9"
 dependencies = [
     "dxpy==0.346.0",
     "general-utilities",
     "pysam~=0.22.1",
     "pytest==7.4.4",
     "pytest-cov~=5.0",
-    "sh~=2.0.6",
+    "sh~=2.0.6"
 ]
-
 
 [tool.uv.sources]
 general-utilities = { git = "https://github.com/mrcepid-rap/general_utilities.git", tag = "v1.5.2" }
@@ -23,5 +23,5 @@ general-utilities = { git = "https://github.com/mrcepid-rap/general_utilities.gi
 [tool.coverage.run]
 omit = [
     "test/*", # Exclude all test files
-    "tests/*", # If your tests folder is named "tests"
+    "tests/*" # If your tests folder is named "tests"
 ]
