@@ -45,32 +45,6 @@ Information about files and projects can be queried using the `dx describe` tool
 dx describe file-1234567890ABCDEFGHIJKLMN
 ```
 
-### Changelog
-
-* v2.1.0
-  * Added new inputs to filter on gq, ad_binom, snp_depth, and indel_depth.
-
-* v2.0.0
-  * Applet has gone through a major refactor to support WGS analysis. Do not expect backwards compatability with previous versions.
-  * Splitting of multiallelics has been refactored to the [mrcepid-bcfsplitter](https://github.com/mrcepid-rap/mrcepid-bcfsplitter).
-  * Removed the per-sample output file as this was computationally expensive and not used in downstream analysis.
-  * Added a full testing suite to ensure that the applet is working as expected.
-    * Please see `Readme.developer.md` for more information on how to run these tests.
-  * The tool no longer specifies default annotations (e.g., REVEL / gnomAD). It now uses a more flexible approach to allow for
-    the addition of any annotation that can be added to a VCF file. Please see this README for information on preparing these files.
-    * LOFTEE is excluded from this list, as it is run via VEP and requires a specific file structure.
-  * It is now possible to set custom values when filtering on GQ (`-igq`).
-  * WES and WGS are now supported, please use the `-iwes true` flag to specify that the input is WGS data. Please see the README on why this is required.
-  * Variant IDs have been modified to be in `CHR_POS_REF_ALT` format. This is to avoid issues with `:` in the variant ID.
-  * The code has been refactored to be more modular and easier to read. Files / methods may be in different locations than before.
-  * The default instance type has been changed to an mem1_ssd1_v2_x72. Please update your workflows and cost expectations accordingly.
-
-* v1.0.1
-  * Added support for .bcf or .vcf.gz input to this applet
-
-* v1.0.0
-  * Initial numbered release. See git changes for history
-
 ### Background
 
 The current proposal for variant quality control is to use a missingness-based approach for variant-level filters.
