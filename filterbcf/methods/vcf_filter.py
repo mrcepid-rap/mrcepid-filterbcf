@@ -96,7 +96,7 @@ class VCFFilter:
                                f'(FMT/GT=\'AA\' & FMT/GQ >= {gq}))) | ' \
                                f'(TYPE=\'indel\' & sSUM(FMT/LAD) >= {indel_depth} & FMT/GQ >= {gq})"'
 
-        cmd = f'bcftools filter -Ob -o /test/{output_vcf} --threads 4 -S . -i {filtering_string} /test/{input_vcf}'
+        cmd = f'bcftools filter -Ob -o /test/{output_vcf.name} --threads 4 -S . -i {filtering_string} /test/{input_vcf.name}'
 
         self._cmd_executor.run_cmd_on_docker(cmd)
 
@@ -123,8 +123,8 @@ class VCFFilter:
 
         # Do not change the command line order here. This plugin has a very specific command-line.
         output_vcf = Path(f'{self._vcf_prefix}.tagged.bcf')
-        cmd = f'bcftools +fill-tags /test/{input_vcf} -Ob ' \
-              f'-o /test/{output_vcf} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
+        cmd = f'bcftools +fill-tags /test/{input_vcf.name} -Ob ' \
+              f'-o /test/{output_vcf.name} -- -t \'F_MISSING,AC,AF,AN,GTM=count(FORMAT/GT == "./."),GT0=count(FORMAT/GT == "0/0"),GT1=count(FORMAT/GT == "0/1"),GT2=count(FORMAT/GT == "1/1")\''
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         # append a list of files to close (to save space)
@@ -142,8 +142,8 @@ class VCFFilter:
         """
         output_vcf = Path(f'{self._vcf_prefix}.id_fixed.bcf')
         cmd = f'bcftools annotate -I "%CHROM\_%POS\_%REF\_%ALT" -Ob --threads 4 ' \
-              f'-o /test/{output_vcf} ' \
-              f'/test/{input_vcf}'
+              f'-o /test/{output_vcf.name} ' \
+              f'/test/{input_vcf.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         # append a list of files to close (to save space)
@@ -167,8 +167,8 @@ class VCFFilter:
         """
         output_vcf = Path(f'{self._vcf_prefix}.missingness_filtered.bcf')
         cmd = f'bcftools filter -i \'F_MISSING<={missingness} & AC!=0\' -s \'FAIL\' -Ob --threads 4 ' \
-              f'-o /test/{output_vcf} ' \
-              f'/test/{input_vcf}'
+              f'-o /test/{output_vcf.name} ' \
+              f'/test/{input_vcf.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         # append a list of files to close (to save space)
@@ -184,7 +184,7 @@ class VCFFilter:
         """
 
         output_index = Path(f'{input_vcf}.csi')
-        cmd = f'bcftools index --threads 4 /test/{input_vcf}'
+        cmd = f'bcftools index --threads 4 /test/{input_vcf.name}'
         self._cmd_executor.run_cmd_on_docker(cmd)
 
         return output_index
