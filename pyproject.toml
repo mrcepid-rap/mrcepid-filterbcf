@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [tool.uv.sources]
-general-utilities = { git = "https://github.com/mrcepid-rap/general_utilities.git", tag = "v1.5.3" }
+general-utilities = { git = "https://github.com/mrcepid-rap/general_utilities.git", tag = "feature/implement-file-exporting-class" }
 
 [tool.coverage.run]
 omit = [

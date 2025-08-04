@@ -7,20 +7,20 @@
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
 import csv
-import dxpy
-
 from pathlib import Path
 from time import sleep
 from typing import TypedDict, List
 
+import dxpy
+from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
 
 from filterbcf.methods.ingest_data import IngestData, AdditionalAnnotation
-from filterbcf.methods.vcf_filter import VCFFilter
 from filterbcf.methods.vcf_annotate import VCFAnnotate
+from filterbcf.methods.vcf_filter import VCFFilter
 
 LOGGER = MRCLogger().get_logger()
 
@@ -40,7 +40,7 @@ class ProcessedReturn(TypedDict):
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
                 cmd_executor: CommandExecutor, gq: int, ad_binom: float, snp_depth: int, indel_depth: int,
-                 missingness: float, wes: bool) -> ProcessedReturn:
+                missingness: float, wes: bool) -> ProcessedReturn:
     """
     Process a VCF file by performing normalization, filtering, and annotation.
 
@@ -189,11 +189,17 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
     # (the subdirectory can be controlled on the command-line by adding a flag to `dx run` like: --destination test/)
-    output = {"output_bcfs": [dxpy.dxlink(item) for item in output_bcfs],
-              "output_bcf_idxs": [dxpy.dxlink(item) for item in output_bcf_idxs],
-              "output_veps": [dxpy.dxlink(item) for item in output_veps],
-              "output_vep_idxs": [dxpy.dxlink(item) for item in output_vep_idxs],
-              "coordinates_file": dxpy.dxlink(dxpy.upload_local_file(coordinates_name))}
+    files_to_export = {
+        "output_bcfs": output_bcfs,
+        "output_bcf_idxs": output_bcf_idxs,
+        "output_veps": output_veps,
+        "output_vep_idxs": output_vep_idxs,
+        "coordinates_file": coordinates_name,
+    }
+
+    # Convert to dxlinks
+    exporter = ExportFileHandler()
+    output = exporter.export_files(files_to_export)
 
     # This returns all the information about your exit files to the work managing your job via DNANexus:
     return output
