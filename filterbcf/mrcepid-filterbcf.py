@@ -189,19 +189,17 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
     # (the subdirectory can be controlled on the command-line by adding a flag to `dx run` like: --destination test/)
-    files_to_export = {
-        "output_bcfs": output_bcfs,
-        "output_bcf_idxs": output_bcf_idxs,
-        "output_veps": output_veps,
-        "output_vep_idxs": output_vep_idxs,
-        "coordinates_file": coordinates_name,
+    # Note: this is now handled through the ExportFileHandler class, which will take care of uploading and linking files.
+
+    exporter = ExportFileHandler()
+    output = {
+        "output_bcfs": exporter.export_files(output_bcfs),
+        "output_bcf_idxs": exporter.export_files(output_bcf_idxs),
+        "output_veps": exporter.export_files(output_veps),
+        "output_vep_idxs": exporter.export_files(output_vep_idxs),
+        "coordinates_file": exporter.export_files(coordinates_name),
     }
 
-    # Convert to dxlinks
-    exporter = ExportFileHandler()
-    output = exporter.export_files(files_to_export)
-
-    # This returns all the information about your exit files to the work managing your job via DNANexus:
     return output
 
 
