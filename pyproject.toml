@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "mrcepid-filterbcf"
-version = "2.1.1"
+version = "2.2.0"
 description = "Filter a target BCF according to parameters set by MRC Epidemiology"
 readme = "Readme.md"
 authors = [
