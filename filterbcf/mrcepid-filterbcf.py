@@ -119,7 +119,7 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     # 1 thread for monitoring threads
     # 1 thread for downloading (VEP)
     # 2 threads for each BCF
-    thread_utility = ThreadUtility(thread_factor=4, error_message='A bcffiltering thread failed', incrementor=5)
+    thread_utility = ThreadUtility(thread_factor=4, incrementor=5)
 
     # Separate function to acquire necessary resource files
     # We pass the above thread utility here to ensure that the download threads are managed by the same thread utility
@@ -128,16 +128,24 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
 
     # And launch the requested threads
     for input_vcf in ingested_data.input_vcfs:
-        thread_utility.launch_job(process_vcf,
-                                  vcf=input_vcf,
-                                  additional_annotations=ingested_data.annotations,
-                                  cmd_executor=ingested_data.cmd_executor,
-                                  gq=gq,
-                                  ad_binom=ad_binom,
-                                  snp_depth=snp_depth,
-                                  indel_depth=indel_depth,
-                                  missingness=missingness,
-                                  wes=wes)
+        thread_utility.launch_job(
+            function=process_vcf,
+            inputs={
+                'vcf': input_vcf,
+                'additional_annotations': ingested_data.annotations,
+                'cmd_executor': ingested_data.cmd_executor,
+                'gq': gq,
+                'ad_binom': ad_binom,
+                'snp_depth': snp_depth,
+                'indel_depth': indel_depth,
+                'missingness': missingness,
+                'wes': wes
+            },
+            outputs=['chrom', 'start', 'end', 'vcf_prefix',
+                     'output_bcf', 'output_bcf_idx',
+                     'output_vep', 'output_vep_idx']
+        )
+    thread_utility.submit_and_monitor()
 
     # And add the resulting futures to relevant output arrays / file
     output_bcfs = []

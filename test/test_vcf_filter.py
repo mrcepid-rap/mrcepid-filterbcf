@@ -10,8 +10,9 @@ from pysam import VariantFile
 
 from filterbcf.methods.vcf_filter import VCFFilter
 
-test_data_dir = Path(__file__).parent / 'test_data'
 CMD_EXEC = build_default_command_executor()
+
+test_data_dir = Path(__file__).parent / 'test_data'
 
 # Set this flag to True if you want to keep (copy) the temporary output files.
 KEEP_TEMP = False

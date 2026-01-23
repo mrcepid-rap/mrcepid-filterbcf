@@ -111,7 +111,7 @@ def cleanup_temp_outputs():
                 9136,
         ),
         (
-                Path(test_data_dir / '/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
+                Path(test_data_dir / 'test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
                 Path('test_input2.vcf.sites.vcf.gz'),
                 Path('test_input2.vcf.vep_table.tsv'),
                 558,
@@ -165,8 +165,7 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     class_loaded = VCFFilter(vcf_filename, cmd_exec, gq=20, wes=True, testing=True, ad_binom=0.001, snp_depth=7,
                              indel_depth=10, missingness=0.5)
 
-    vcf_annotator = VCFAnnotate(vcf_filename, class_loaded.filtered_vcf, additional_annotations=[],
-                                cmd_executor=cmd_exec)
+    vcf_annotator = VCFAnnotate(vcf_filename, class_loaded.filtered_vcf, additional_annotations=[])
     print("VCF Annotator class loaded successfully")
 
     # test for defining the VEP scores
