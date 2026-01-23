@@ -29,4 +29,4 @@ omit = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["bcfsplitter*"]
+include = ["filterbcf*"]
