@@ -77,7 +77,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
         sleep(5)
 
     # 2. Do annotation
-    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
+    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations)
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
