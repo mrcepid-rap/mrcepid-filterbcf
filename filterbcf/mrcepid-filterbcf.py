@@ -187,10 +187,10 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                 'start': result['start'],
                 'end': result['end'],
                 'vcf_prefix': result['vcf_prefix'],
-                'output_bcf': result['output_bcf'].describe()['id'],
-                'output_bcf_idx': result['output_bcf_idx'].describe()['id'],
-                'output_vep': result['output_vep'].describe()['id'],
-                'output_vep_idx': result['output_vep_idx'].describe()['id']}
+                'output_bcf': result['output_bcf']['id'],
+                'output_bcf_idx': result['output_bcf_idx']['id'],
+                'output_vep': result['output_vep']['id'],
+                'output_vep_idx': result['output_vep_idx']['id']}
             coordinate_csv.writerow(writer_dict)
 
     # Getting files back into your project directory on DNAnexus is a two-step process:
