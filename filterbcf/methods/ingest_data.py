@@ -56,10 +56,31 @@ class IngestData:
         # Here we are downloading & unpacking resource files that are required for the annotation engine:
         # These downloads are submitted to a ThreadPoolExecutor so that they download in the background while
         # we perform initial filtering. The monitoring of these threads is handled by the parent class
-        thread_utility.launch_job(self._ingest_human_reference, human_reference=human_reference,
-                                  human_reference_index=human_reference_index)
-        thread_utility.launch_job(self._ingest_loftee_files, loftee_libraries=loftee_libraries)
-        thread_utility.launch_job(self._ingest_vep_cache, vep_cache=vep_cache)
+
+        thread_utility.launch_job(
+            function=self._ingest_human_reference,
+            inputs={
+                'human_reference': human_reference,
+                'human_reference_index': human_reference_index
+            },
+            outputs=None
+        )
+
+        thread_utility.launch_job(
+            function=self._ingest_loftee_files,
+            inputs={
+                'loftee_libraries': loftee_libraries
+            },
+            outputs=None
+        )
+
+        thread_utility.launch_job(
+            function=self._ingest_vep_cache,
+            inputs={
+                'vep_cache': vep_cache
+            },
+            outputs=None
+        )
 
     def _set_vcf_list(self, input_vcfs: dict) -> List[str]:
         """Download the input VCF list.

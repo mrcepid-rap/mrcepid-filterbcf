@@ -27,12 +27,13 @@ from pathlib import Path
 import pandas as pd
 import pysam
 import pytest
-from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
+from general_utilities.job_management.command_executor import build_default_command_executor
 
 from filterbcf.methods.vcf_annotate import VCFAnnotate
 from filterbcf.methods.vcf_filter import VCFFilter
 
 test_data_dir = Path(__file__).parent
+CMD_EXEC = build_default_command_executor()
 
 # ensure the necessary test files exist
 assert Path("test/loftee_files/loftee_hg38/").exists
@@ -41,7 +42,7 @@ assert Path("test/reference.fasta").exists
 assert Path("test/reference.fasta.fai").exists
 
 # Set this flag to True if you want to keep (copy) the temporary output files
-KEEP_TEMP = True  # or True if needed
+KEEP_TEMP = False  # or True if needed
 
 
 @pytest.fixture
@@ -91,7 +92,7 @@ def cleanup_temp_outputs():
     "annotation_name, expected_number_of_annotations",
     [
         (
-                Path('/test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
+                Path(test_data_dir / 'test_data/test_input1.vcf.gz'), 'chr7', 100679512, 100694238,
                 Path('test_input1.vcf.sites.vcf.gz'),
                 Path('test_input1.vcf.vep_table.tsv'),
                 907,
@@ -99,18 +100,18 @@ def cleanup_temp_outputs():
                 875,
                 777,
                 {
-                    'file': Path('test_data/anno1.tsv.gz'),
-                    'index': Path('test_data/anno1.tsv.gz.tbi'),
+                    'file': Path(test_data_dir / 'test_data/anno1.tsv.gz'),
+                    'index': Path(test_data_dir / 'test_data/anno1.tsv.gz.tbi'),
                     'annotation_name': 'some_annotation',
                     'header_file': "##INFO=<ID=SANNO,Number=1,Type=String,Description='SANNO annotation.'>",
                     'symbol_mode': ''
                 },
-                Path('test_data/expected_outputs/test_input1.vcf.vep_table.tsv'),
+                Path(test_data_dir / 'test_data/expected_outputs/test_input1.vcf.vep_table.tsv'),
                 'some_annotation',
                 9136,
         ),
         (
-                Path('/test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
+                Path(test_data_dir / 'test_data/test_input2.vcf.gz'), 'chr13', 36432507, 36442739,
                 Path('test_input2.vcf.sites.vcf.gz'),
                 Path('test_input2.vcf.vep_table.tsv'),
                 558,
@@ -118,13 +119,13 @@ def cleanup_temp_outputs():
                 504,
                 461,
                 {
-                    'file': Path('test_data/anno2.tsv.gz'),
-                    'index': Path('test_data/anno2.tsv.gz.tbi'),
+                    'file': Path(test_data_dir / 'test_data/anno2.tsv.gz'),
+                    'index': Path(test_data_dir / 'test_data/anno2.tsv.gz.tbi'),
                     'annotation_name': 'some_other_annotation',
                     'header_file': "##INFO=<ID=SMANNO,Number=1,Type=String,Description='SMANNO annotation.'>",
                     'symbol_mode': 'ENST'
                 },
-                Path('test_data/expected_outputs/test_input2.vcf.vep_table.tsv'),
+                Path(test_data_dir / 'test_data/expected_outputs/test_input2.vcf.vep_table.tsv'),
                 'some_other_annotation',
                 1089,
         ),
@@ -134,7 +135,7 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
                        expected_end: int, expected_vep: Path, final_vep_file: Path, number_of_variants: int,
                        vep_table_length: int, vep_unique_variants_length: int, vep_unique_pass_variants: int,
                        annotation_dict: dict, final_vep_annotation_path: Path, annotation_name: str,
-                       expected_number_of_annotations: int):
+                       expected_number_of_annotations: int, cmd_exec=CMD_EXEC):
     """
     Test the VCFAnnotate class and its methods.
 
@@ -157,14 +158,14 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     :type vcf_filename: str
     """
 
+    # print the current working directory
+    print(f"Current working directory: {os.getcwd()}")
+
     # load the class for testing
-    test_mount = DockerMount(Path(os.getcwd()), Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
+    class_loaded = VCFFilter(vcf_filename, cmd_exec, gq=20, wes=True, testing=True, ad_binom=0.001, snp_depth=7,
+                             indel_depth=10, missingness=0.5)
 
-    class_loaded = VCFFilter(vcf_filename, cmd_exec, gq=20, wes=True, testing=True)
-
-    vcf_annotator = VCFAnnotate(vcf_filename, class_loaded.filtered_vcf, additional_annotations=[],
-                                cmd_executor=cmd_exec)
+    vcf_annotator = VCFAnnotate(vcf_filename, class_loaded.filtered_vcf, additional_annotations=[])
     print("VCF Annotator class loaded successfully")
 
     # test for defining the VEP scores
@@ -383,8 +384,6 @@ def test_vcf_annotator(temporary_path: Path, vcf_filename: Path, expected_chrom:
     # Assert: All values in non-matching rows must NOT be 'some_other_annotation'
     assert (annotation_df[~matching_rows_mask] != annotation_name).all().all(), \
         "Mismatch: Some non-matching rows contain 'some_other_annotation' in annotation columns."
-
-
 
 
 def read_vcf_as_dataframe(vcf_file_path: Path):

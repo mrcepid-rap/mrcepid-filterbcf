@@ -4,10 +4,13 @@ from pathlib import Path
 from typing import Tuple, Generator, Dict
 
 import pytest
-from general_utilities.job_management.command_executor import DockerMount, CommandExecutor
+from general_utilities.job_management.command_executor import DockerMount, CommandExecutor, \
+    build_default_command_executor
 from pysam import VariantFile
 
 from filterbcf.methods.vcf_filter import VCFFilter
+
+CMD_EXEC = build_default_command_executor()
 
 test_data_dir = Path(__file__).parent / 'test_data'
 
@@ -117,7 +120,7 @@ def make_vcf_link(tmp_dir: Path, vcf: Path, idx: Path) -> Tuple[Path, Path]:
                                'fail': 2}, True, 20, 0.001, 10, 15, 250560)
                          ])
 def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, ad_binom: float, snp_depth: int,
-                         indel_depth: int, gt_none: int) -> None:
+                         indel_depth: int, gt_none: int, cmd_exec=CMD_EXEC) -> None:
     """
     Test for the genotype filter of the VCF files. We are testing to ensure that the genotype filter is working.
 
@@ -130,16 +133,14 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, ad_
     :param indel_depth: Depth filter for indels.
     :return: None
     """
-    test_mount = DockerMount(temporary_path, Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq, ad_binom, snp_depth, indel_depth,
+    class_loaded = VCFFilter(Path(tmp_vcf), cmd_exec, gq, ad_binom, snp_depth, indel_depth,
                              missingness=0.5, wes=wes, testing=True)
 
-    outfile = class_loaded._genotype_filter(Path(tmp_vcf.name), gq, ad_binom, snp_depth, indel_depth, wes)
+    outfile = class_loaded._genotype_filter(Path(tmp_vcf), gq, ad_binom, snp_depth, indel_depth, wes)
     outfile_path = tmp_vcf.parent / outfile
 
     assert outfile_path.exists()
@@ -193,7 +194,7 @@ def test_genotype_filter(temporary_path: Path, vcf_info, wes: bool, gq: int, ad_
     ])
 def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_fmissing: float, expected_gt0: int,
                                 expected_gt1: int, expected_gt2: int, expected_ac: int, expected_af: float,
-                                expected_an: int) -> None:
+                                expected_an: int, cmd_exec=CMD_EXEC) -> None:
     """
     Create and set missingness values in the VCF file
 
@@ -201,16 +202,14 @@ def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_f
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(temporary_path, Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+    class_loaded = VCFFilter(Path(tmp_vcf), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
                              missingness=0.5, wes=True, testing=True)
 
-    outfile = class_loaded._set_missingness_values(Path(tmp_vcf.name))
+    outfile = class_loaded._set_missingness_values(Path(tmp_vcf))
 
     outfile_path = tmp_vcf.parent / outfile
     assert outfile_path.exists()
@@ -282,7 +281,7 @@ def test_set_missingness_values(temporary_path: Path, vcf_info: Dict, expected_f
 
 @pytest.mark.parametrize(argnames='vcf_info',
                          argvalues=EXPECTED_VCF_VALUES)
-def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
+def test_set_id(temporary_path: Path, vcf_info: Dict, cmd_exec=CMD_EXEC) -> None:
     """
     Ensure variant IDs are properly formatted
 
@@ -290,16 +289,14 @@ def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(temporary_path, Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+    class_loaded = VCFFilter(Path(tmp_vcf), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
                              missingness=0.5, wes=True, testing=True)
 
-    outfile = class_loaded._set_id(Path(tmp_vcf.name))
+    outfile = class_loaded._set_id(Path(tmp_vcf))
 
     outfile_path = tmp_vcf.parent / outfile
     assert outfile_path.exists()
@@ -319,7 +316,7 @@ def test_set_id(temporary_path: Path, vcf_info: Dict) -> None:
                                     (EXPECTED_VCF_VALUES[0], 0.0, 297),  # Some sites have 0% missingness
                                     (EXPECTED_VCF_VALUES[0], 0.1, 118),
                                     (EXPECTED_VCF_VALUES[0], 1.0, 47)])
-def test_set_filter_flags(temporary_path: Path, vcf_info: Dict, missingness: float, expected_fail: int) -> None:
+def test_set_filter_flags(temporary_path: Path, vcf_info: Dict, missingness: float, expected_fail: int, cmd_exec=CMD_EXEC) -> None:
     """
     Ensure the filter flags are working correctly
 
@@ -329,20 +326,18 @@ def test_set_filter_flags(temporary_path: Path, vcf_info: Dict, missingness: flo
     :param expected_fail: expected number of failed records
     :return: output
     """
-    test_mount = DockerMount(temporary_path, Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+    class_loaded = VCFFilter(Path(tmp_vcf), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
                              missingness=missingness, wes=True, testing=True)
 
     labeled_file = tmp_vcf.with_suffix('.id_fixed.bcf')
     print(labeled_file.absolute())
     assert labeled_file.exists()
 
-    outfile = class_loaded._set_filter_flags(Path(labeled_file.name), missingness)
+    outfile = class_loaded._set_filter_flags(Path(labeled_file), missingness)
 
     outfile_path = tmp_vcf.parent / outfile
     assert outfile_path.exists()
@@ -365,7 +360,7 @@ def test_set_filter_flags(temporary_path: Path, vcf_info: Dict, missingness: flo
 
 @pytest.mark.parametrize(argnames='vcf_info',
                          argvalues=EXPECTED_VCF_VALUES)
-def test_write_index(temporary_path: Path, vcf_info: Dict) -> None:
+def test_write_index(temporary_path: Path, vcf_info: Dict, cmd_exec=CMD_EXEC) -> None:
     """
     Ensure the index file gets created
 
@@ -373,16 +368,14 @@ def test_write_index(temporary_path: Path, vcf_info: Dict) -> None:
     :param vcf_info: vcf_file attributes (file path, expected count etc.)
     :return: output
     """
-    test_mount = DockerMount(temporary_path, Path('/test/'))
-    cmd_exec = CommandExecutor(docker_image='egardner413/mrcepid-burdentesting', docker_mounts=[test_mount])
     tmp_vcf, tmp_idx = make_vcf_link(temporary_path, vcf_info["vcf"], vcf_info["index"])
 
     assert tmp_vcf.exists()
 
-    class_loaded = VCFFilter(Path(tmp_vcf.name), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
+    class_loaded = VCFFilter(Path(tmp_vcf), cmd_exec, gq=20, ad_binom=0.001, snp_depth=7, indel_depth=10,
                              missingness=0.5, wes=True, testing=True)
 
-    outfile = class_loaded._write_index(Path(tmp_vcf.name))
+    outfile = class_loaded._write_index(Path(tmp_vcf))
 
     outfile_path = tmp_vcf.parent / outfile
     assert outfile_path.exists()

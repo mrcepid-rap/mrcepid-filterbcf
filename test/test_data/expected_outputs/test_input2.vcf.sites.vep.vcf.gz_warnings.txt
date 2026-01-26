@@ -1,0 +1,6 @@
+WARNING: 28 : WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.
+WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.
+WARNING: 25 : WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.
+WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.
+WARNING: 27 : WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.
+WARNING: Plugin 'LoF' went wrong: tabix /vep/loftee/GERP_scores.final.sorted.txt.gz does not exist at /ensembl-vep/cache/Plugins/loftee/gerp_dist.pl line 72.

@@ -7,20 +7,20 @@
 # DNAnexus Python Bindings (dxpy) documentation:
 #   http://autodoc.dnanexus.com/bindings/python/current/
 import csv
-import dxpy
-
 from pathlib import Path
 from time import sleep
 from typing import TypedDict, List
 
+import dxpy
+from general_utilities.import_utils.file_handlers.export_file_handler import ExportFileHandler
 from general_utilities.import_utils.file_handlers.input_file_handler import InputFileHandler
 from general_utilities.job_management.command_executor import CommandExecutor
 from general_utilities.job_management.thread_utility import ThreadUtility
 from general_utilities.mrc_logger import MRCLogger
 
 from filterbcf.methods.ingest_data import IngestData, AdditionalAnnotation
-from filterbcf.methods.vcf_filter import VCFFilter
 from filterbcf.methods.vcf_annotate import VCFAnnotate
+from filterbcf.methods.vcf_filter import VCFFilter
 
 LOGGER = MRCLogger().get_logger()
 
@@ -40,7 +40,7 @@ class ProcessedReturn(TypedDict):
 # It is the primary unit that is executed by individual threads from the 'main()' method
 def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
                 cmd_executor: CommandExecutor, gq: int, ad_binom: float, snp_depth: int, indel_depth: int,
-                 missingness: float, wes: bool) -> ProcessedReturn:
+                missingness: float, wes: bool) -> ProcessedReturn:
     """
     Process a VCF file by performing normalization, filtering, and annotation.
 
@@ -77,7 +77,7 @@ def process_vcf(vcf: str, additional_annotations: List[AdditionalAnnotation],
         sleep(5)
 
     # 2. Do annotation
-    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations, cmd_executor)
+    vcf_annotater = VCFAnnotate(vcf_path, vcf_filter.filtered_vcf, additional_annotations)
 
     return {'chrom': vcf_annotater.chunk_chrom,
             'start': vcf_annotater.chunk_start,
@@ -119,7 +119,7 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
     # 1 thread for monitoring threads
     # 1 thread for downloading (VEP)
     # 2 threads for each BCF
-    thread_utility = ThreadUtility(thread_factor=4, error_message='A bcffiltering thread failed', incrementor=5)
+    thread_utility = ThreadUtility(thread_factor=4, incrementor=5)
 
     # Separate function to acquire necessary resource files
     # We pass the above thread utility here to ensure that the download threads are managed by the same thread utility
@@ -128,16 +128,24 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
 
     # And launch the requested threads
     for input_vcf in ingested_data.input_vcfs:
-        thread_utility.launch_job(process_vcf,
-                                  vcf=input_vcf,
-                                  additional_annotations=ingested_data.annotations,
-                                  cmd_executor=ingested_data.cmd_executor,
-                                  gq=gq,
-                                  ad_binom=ad_binom,
-                                  snp_depth=snp_depth,
-                                  indel_depth=indel_depth,
-                                  missingness=missingness,
-                                  wes=wes)
+        thread_utility.launch_job(
+            function=process_vcf,
+            inputs={
+                'vcf': input_vcf,
+                'additional_annotations': ingested_data.annotations,
+                'cmd_executor': ingested_data.cmd_executor,
+                'gq': gq,
+                'ad_binom': ad_binom,
+                'snp_depth': snp_depth,
+                'indel_depth': indel_depth,
+                'missingness': missingness,
+                'wes': wes
+            },
+            outputs=['chrom', 'start', 'end', 'vcf_prefix',
+                     'output_bcf', 'output_bcf_idx',
+                     'output_vep', 'output_vep_idx']
+        )
+    thread_utility.submit_and_monitor()
 
     # And add the resulting futures to relevant output arrays / file
     output_bcfs = []
@@ -179,23 +187,27 @@ def main(input_vcfs: dict, coordinates_name: str, human_reference: dict, human_r
                 'start': result['start'],
                 'end': result['end'],
                 'vcf_prefix': result['vcf_prefix'],
-                'output_bcf': result['output_bcf'].describe()['id'],
-                'output_bcf_idx': result['output_bcf_idx'].describe()['id'],
-                'output_vep': result['output_vep'].describe()['id'],
-                'output_vep_idx': result['output_vep_idx'].describe()['id']}
+                'output_bcf': result['output_bcf'],
+                'output_bcf_idx': result['output_bcf_idx'],
+                'output_vep': result['output_vep'],
+                'output_vep_idx': result['output_vep_idx']}
             coordinate_csv.writerow(writer_dict)
 
     # Getting files back into your project directory on DNAnexus is a two-step process:
     # 1. uploading the local file to the DNA nexus platform to assign it a file-ID (looks like file-ABCDEFGHIJKLMN1234567890)
     # 2. linking this file ID to your project and placing it within your project's directory structure
     # (the subdirectory can be controlled on the command-line by adding a flag to `dx run` like: --destination test/)
-    output = {"output_bcfs": [dxpy.dxlink(item) for item in output_bcfs],
-              "output_bcf_idxs": [dxpy.dxlink(item) for item in output_bcf_idxs],
-              "output_veps": [dxpy.dxlink(item) for item in output_veps],
-              "output_vep_idxs": [dxpy.dxlink(item) for item in output_vep_idxs],
-              "coordinates_file": dxpy.dxlink(dxpy.upload_local_file(coordinates_name))}
+    # Note: this is now handled through the ExportFileHandler class, which will take care of uploading and linking files.
 
-    # This returns all the information about your exit files to the work managing your job via DNANexus:
+    exporter = ExportFileHandler()
+    output = {
+        "output_bcfs": exporter.export_files(output_bcfs),
+        "output_bcf_idxs": exporter.export_files(output_bcf_idxs),
+        "output_veps": exporter.export_files(output_veps),
+        "output_vep_idxs": exporter.export_files(output_vep_idxs),
+        "coordinates_file": exporter.export_files(coordinates_name),
+    }
+
     return output
 
 
